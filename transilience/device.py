@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Iterator, Dict
 from .utils import run
+from .system import Chroot
 import re
 import os
 import logging
@@ -112,7 +113,7 @@ class RaspiImage(DiskImage):
     Access a Raspberry Pi OS disk image
     """
     @contextlib.contextmanager
-    def mount(self) -> Iterator[str]:
+    def mount(self) -> Chroot:
         """
         Context manager that mounts the raspbian system in a temporary directory
         and unmounts it on exit.
@@ -126,4 +127,4 @@ class RaspiImage(DiskImage):
                 with rootfs.ext4_dir_index_workaround():
                     with rootfs.mount(root):
                         with boot.mount(os.path.join(root, "boot")):
-                            yield root
+                            yield Chroot(root)

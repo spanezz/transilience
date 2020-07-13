@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Union, Optional, Iterator
+from typing import TYPE_CHECKING, List, Union, Optional, Iterator, Sequence
 from contextlib import contextmanager
 from .utils import atomic_writer
 import tempfile
@@ -9,10 +9,20 @@ import os
 import shlex
 import logging
 
+if TYPE_CHECKING:
+    from .actions import Action
+
 log = logging.getLogger(__name__)
 
 
-class Chroot:
+class System:
+    """
+    Access a system to be provisioned
+    """
+    pass
+
+
+class Chroot(System):
     """
     Access a system inside a chroot
     """
@@ -32,6 +42,12 @@ class Chroot:
         if create:
             os.makedirs(res, exist_ok=True)
         return res
+
+    def has_file(self, relpath: str, *args) -> bool:
+        """
+        Check if the given file exists in the chroot
+        """
+        return os.path.exists(self.abspath(relpath, *args))
 
     def getmtime(self, relpath: str) -> float:
         """
@@ -62,6 +78,17 @@ class Chroot:
         if os.path.lexists(dest):
             os.unlink(dest)
         os.symlink(target, dest)
+
+    @contextmanager
+    def tempdir(self) -> Iterator[str]:
+        """
+        Create a temporary working directory inside the chroot.
+
+        Returns the relative path of the working directory from the root of the
+        chroot.
+        """
+        with tempfile.TemporaryDirectory(dir=self.abspath("root")) as path:
+            yield os.path.join("/", os.path.relpath(path, self.root))
 
     @contextmanager
     def edit_text_file(self, fname: str):
@@ -261,6 +288,14 @@ class Chroot:
             return
 
         self.run(cmd)
+
+    def run_actions(self, actions: Sequence[Action]):
+        """
+        Run a sequence of provisioning actions in the chroot
+        """
+        for action in actions:
+            log.info("%s: running action %s", self.root, action.name)
+            action.run(self)
 
 #    def edit_kernel_commandline(self, fname="cmdline.txt"):
 #        """
