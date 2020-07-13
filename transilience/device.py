@@ -1,6 +1,8 @@
 from __future__ import annotations
-from typing import Iterator
+from typing import Iterator, Dict
 from .utils import run
+import re
+import os
 import logging
 import json
 import contextlib
@@ -8,9 +10,45 @@ import contextlib
 log = logging.getLogger(__name__)
 
 
-class Partition:
+class BlockDevice:
     """
-    Information and access to a block device
+    Information and access to a generic block device
+    """
+    def __init__(self, path: str):
+        self.path = path
+        self.refresh()
+
+
+class ImageFile(BlockDevice):
+    def refresh(self):
+        pass
+
+    @contextlib.contextmanager
+    def partitions(self) -> Dict[str, "Partition"]:
+        """
+        Context manager that create loop devices to access partitions inside the
+        image, and shuts them down at the end
+        """
+        res = run(("kpartx", "-avs", self.path), text=True, capture_output=True)
+        devs = {}
+        re_mapping = re.compile(r"^add map (\S+)")
+        for line in res.stdout.splitlines():
+            mo = re_mapping.match(line)
+            if not mo:
+                log.error("Unrecognised kpartx output line: %r", line)
+                continue
+            dev = Partition(os.path.join("/dev/mapper", mo.group(1)))
+            devs[dev.label] = dev
+
+        try:
+            yield devs
+        finally:
+            res = run(("kpartx", "-ds", self.path))
+
+
+class Partition(BlockDevice):
+    """
+    Information and access to a block device for a disk partition
     """
     def __init__(self, path: str):
         self.path = path
