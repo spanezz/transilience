@@ -8,7 +8,7 @@ import contextlib
 log = logging.getLogger(__name__)
 
 
-class BlockDevice:
+class Partition:
     """
     Information and access to a block device
     """
