@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, Dict
+from typing import TYPE_CHECKING, Iterator, Dict
 from .utils import run
 from .system import Chroot
 import re
@@ -8,6 +8,9 @@ import logging
 import json
 import contextlib
 import tempfile
+
+if TYPE_CHECKING:
+    import parted
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +28,18 @@ class Disk(BlockDevice):
     """
     Information and access to a block device for a whole disk
     """
-    pass
+    @contextlib.contextmanager
+    def parted_device(self) -> Iterator[parted.Device]:
+        try:
+            import parted
+        except ModuleNotFoundError:
+            raise NotImplementedError("Install pyparted (python3-parted in debian) to do partitioning work")
+
+        device = parted.getDevice(self.path)
+        try:
+            yield device
+        finally:
+            device.close
 
 
 class DiskImage(Disk):
