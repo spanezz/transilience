@@ -6,6 +6,7 @@ import os
 import logging
 import json
 import contextlib
+import tempfile
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +20,14 @@ class BlockDevice:
         self.refresh()
 
 
-class ImageFile(BlockDevice):
+class Disk(BlockDevice):
+    """
+    Information and access to a block device for a whole disk
+    """
+    pass
+
+
+class DiskImage(Disk):
     def refresh(self):
         pass
 
@@ -97,3 +105,25 @@ class Partition(BlockDevice):
             yield
         finally:
             run(("umount", path))
+
+
+class RaspiImage(DiskImage):
+    """
+    Access a Raspberry Pi OS disk image
+    """
+    @contextlib.contextmanager
+    def mount(self) -> Iterator[str]:
+        """
+        Context manager that mounts the raspbian system in a temporary directory
+        and unmounts it on exit.
+
+        It produces the path to the mounted filesystem
+        """
+        with tempfile.TemporaryDirectory() as root:
+            with self.partitions() as devs:
+                boot = devs["boot"]
+                rootfs = devs["rootfs"]
+                with rootfs.ext4_dir_index_workaround():
+                    with rootfs.mount(root):
+                        with boot.mount(os.path.join(root, "boot")):
+                            yield root
