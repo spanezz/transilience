@@ -40,6 +40,22 @@ class AptInstall(Action):
 
 
 @dataclass
+class AptRemove(Action):
+    packages: Sequence[str]
+    purge: bool = False
+
+    def run(self, system: System):
+        """
+        Remove the given packages
+        """
+        cmd = ["apt", "-y", "remove" if self.purge is False else "purge"]
+        for pkg in self.packages:
+            # TODO: check in /var/lib/dpkg if they are already removed/purged
+            cmd.append(pkg)
+        system.run(cmd)
+
+
+@dataclass
 class AptInstallDeb(Action):
     packages: Sequence[str]
     recommends: bool = False
