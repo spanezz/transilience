@@ -1,6 +1,9 @@
 # Transilience
 
-Python provisioning library
+Python provisioning library.
+
+Ansible-like modules. Declarative actions. Generate actions with Python. No
+templatized YAML. Mitogen-based connections.
 
 
 ## Why the name
