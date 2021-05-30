@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Union, Optional
 from dataclasses import dataclass
 import logging
+import shutil
 import errno
 import pwd
 import grp
@@ -46,6 +47,14 @@ class File(Action):
             os.fchmod(fd, self.mode)
             self.log.info("%s: file mode set to 0o%o", self.path, self.mode)
 
+    def do_absent(self):
+        if os.path.isdir(self.path):
+            shutil.rmtree(self.path)
+            self.log.info("%s: removed directory recursively")
+        elif os.path.exists(self.path):
+            os.unlink(self.path)
+            self.log.info("%s: removed")
+
     def do_file(self):
         try:
             fd = os.open(self.path, os.O_RDONLY)
@@ -59,21 +68,26 @@ class File(Action):
             os.close(fd)
 
     def do_touch(self):
-        try:
-            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=0)
-        except OSError as e:
-            if e == errno.EEXIST:
-                self.log.debug("%s: file already exists")
-                pass
-            else:
-                raise
-        else:
-            self.log.info("%s: file created", self.path)
+        needs_chmod = self.pw_owner is not None or self.pw_group is not None or self.mode is not None
 
         try:
-            self.set_mode(fd)
-        finally:
-            os.close(fd)
+            if needs_chmod:
+                mode = 0
+            else:
+                mode = 0o666
+            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=mode)
+            self.log.info("%s: file created", self.path)
+        except FileExistsError:
+            if needs_chmod:
+                fd = os.open(self.path, os.O_RDONLY)
+            else:
+                fd = None
+
+        if fd is not None:
+            try:
+                self.set_mode(fd)
+            finally:
+                os.close(fd)
 
     def run(self):
         # Resolve/validate owner and group before we perform any action
