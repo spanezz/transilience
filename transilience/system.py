@@ -64,7 +64,7 @@ else:
                 if not isinstance(action, actions.Action):
                     raise ValueError(f"action {action!r} is not an instance of Action")
                 d = dataclasses.asdict(action)
-                d["action"] = f"{action.__class__.__module__}.{action.__class__.__qualname__}"
+                d["__action__"] = f"{action.__class__.__module__}.{action.__class__.__qualname__}"
                 serialized.append(d)
             return self.remote.call(self.remote_run_actions, serialized)
 
@@ -73,9 +73,9 @@ else:
             import importlib
             res = []
             for action_info in actions:
-                action_name = action_info.pop("action", None)
+                action_name = action_info.pop("__action__", None)
                 if action_name is None:
-                    raise ValueError(f"action {action_info!r} has no 'action' name")
+                    raise ValueError(f"action {action_info!r} has no '__action__' element")
                 mod_name, _, cls_name = action_name.rpartition(".")
                 mod = importlib.import_module(mod_name)
                 action_cls = getattr(mod, cls_name, None)
