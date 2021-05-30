@@ -4,7 +4,6 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience import actions
 
 
 class TestMitogen(unittest.TestCase):

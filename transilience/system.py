@@ -53,26 +53,11 @@ else:
 
             self.remote = meth(remote_name=name, **kw)
 
-            # self.pending_init = [self.remote.call_async(self.import_transilience)]
-
-        # def ensure_initialized(self):
-        #     import mitogen.select
-
-        #     if self.pending_init is not None:
-        #         for res in mitogen.select.Select(self.pending_init):
-        #             print("RES", repr(res.unpickle()))
-        #         self.pending_init = None
-
         def run_actions(self, actions: Sequence[Action]):
             """
             Run a sequence of provisioning actions in the chroot
             """
-            # self.ensure_initialized()
             return self.remote.call(self.remote_run_actions, actions)
-
-        @classmethod
-        def import_transilience(self):
-            return True
 
         @classmethod
         def remote_run_actions(self, actions: Sequence[Action]):
