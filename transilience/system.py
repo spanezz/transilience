@@ -8,6 +8,11 @@ import shutil
 import os
 import shlex
 import logging
+try:
+    import mitogen
+    import mitogen.master
+except ModuleNotFoundError:
+    mitogen = None
 
 if TYPE_CHECKING:
     from .actions import Action
@@ -20,6 +25,71 @@ class System:
     Access a system to be provisioned
     """
     pass
+
+
+if mitogen is None:
+    class Mitogen(System):
+        def __init__(self, *args, **kw):
+            raise NotImplementedError("the mitogen python module is not installed on this system")
+else:
+    class Mitogen(System):
+        """
+        Access a system via Mitogen
+        """
+        internal_broker = None
+        internal_router = None
+
+        def __init__(self, name: str, method: str, router: Optional[mitogen.master.Router] = None, **kw):
+            if router is None:
+                if self.internal_router is None:
+                    self.internal_broker = mitogen.master.Broker()
+                    self.internal_router = mitogen.master.Router(self.internal_broker)
+                router = self.internal_router
+            self.router = router
+
+            meth = getattr(self.router, method, None)
+            if meth is None:
+                raise KeyError(f"conncetion method {method!r} not available in mitogen")
+
+            self.remote = meth(remote_name=name, **kw)
+
+            # self.pending_init = [self.remote.call_async(self.import_transilience)]
+
+        # def ensure_initialized(self):
+        #     import mitogen.select
+
+        #     if self.pending_init is not None:
+        #         for res in mitogen.select.Select(self.pending_init):
+        #             print("RES", repr(res.unpickle()))
+        #         self.pending_init = None
+
+        def run_actions(self, actions: Sequence[Action]):
+            """
+            Run a sequence of provisioning actions in the chroot
+            """
+            # self.ensure_initialized()
+            return self.remote.call(self.remote_run_actions, actions)
+
+        @classmethod
+        def import_transilience(self):
+            return True
+
+        @classmethod
+        def remote_run_actions(self, actions: Sequence[Action]):
+            import transilience.actions
+            res = []
+            for action_info in actions:
+                action_name = action_info.pop("action", None)
+                if action_name is None:
+                    raise ValueError(f"action {action_info!r} has no 'action' name")
+                action_cls = getattr(transilience.actions, action_name, None)
+                if action_cls is None:
+                    raise ValueError(f"action {action_name!r} not found in transilience.actions")
+                if not issubclass(action_cls, transilience.actions.Action):
+                    raise ValueError(f"action {action_name!r} is not a valid Action")
+                action = action_cls(**action_info)
+                res.append(action.run())
+            return res
 
 
 class Chroot(System):
