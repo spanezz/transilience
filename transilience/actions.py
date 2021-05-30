@@ -3,7 +3,6 @@ from typing import Union, Optional
 from dataclasses import dataclass
 import logging
 import shutil
-import errno
 import pwd
 import grp
 import os
@@ -58,9 +57,8 @@ class File(Action):
     def do_file(self):
         try:
             fd = os.open(self.path, os.O_RDONLY)
-        except OSError as e:
-            if e == errno.ENOENT:
-                return
+        except FileNotFoundError:
+            return
 
         try:
             self.set_mode(fd)

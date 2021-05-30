@@ -78,3 +78,42 @@ class TestTouch(LocalMixin, unittest.TestCase):
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o666 & ~umask)
+
+
+class TestFile(LocalMixin, unittest.TestCase):
+    def test_create(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Create test file",
+                        "path": testfile,
+                        "state": "file",
+                        "mode": 0o640,
+                    }
+                ])
+
+            self.assertFalse(os.path.exists(testfile))
+
+    def test_exists(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            with open(testfile, "wb"):
+                pass
+            os.chmod(testfile, 0o666)
+
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Create test file",
+                        "path": testfile,
+                        "state": "file",
+                        "mode": 0o640,
+                    }
+                ])
+
+            st = os.stat(testfile)
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
