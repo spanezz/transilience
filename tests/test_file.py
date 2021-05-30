@@ -197,7 +197,7 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
             with self.assertRaises(mitogen.core.CallError):
                 self.system.run_actions([
                     actions.File(
-                        name="Create test dur",
+                        name="Create test dir",
                         path=testdir,
                         state="directory",
                     ),
