@@ -117,3 +117,57 @@ class TestFile(LocalMixin, unittest.TestCase):
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+
+
+class TestAbsent(LocalMixin, unittest.TestCase):
+    def test_missing(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Remove missing file",
+                        "path": testfile,
+                        "state": "absent",
+                    }
+                ])
+
+            self.assertFalse(os.path.exists(testfile))
+
+    def test_file(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            with open(testfile, "wb"):
+                pass
+
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Remove test file",
+                        "path": testfile,
+                        "state": "absent",
+                    }
+                ])
+
+            self.assertFalse(os.path.exists(testfile))
+
+    def test_dir(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testdir = os.path.join(workdir, "testdir")
+            os.makedirs(testdir)
+            with open(os.path.join(testdir, "testfile"), "wb"):
+                pass
+
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Remove test dir",
+                        "path": testdir,
+                        "state": "absent",
+                    }
+                ])
+
+            self.assertFalse(os.path.exists(testdir))
