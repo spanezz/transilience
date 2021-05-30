@@ -66,17 +66,17 @@ class File(Action):
             os.close(fd)
 
     def do_touch(self):
-        needs_chmod = self.pw_owner is not None or self.pw_group is not None or self.mode is not None
+        needs_set_mode = self.pw_owner is not None or self.pw_group is not None or self.mode is not None
 
         try:
-            if needs_chmod:
+            if needs_set_mode:
                 mode = 0
             else:
                 mode = 0o666
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=mode)
             self.log.info("%s: file created", self.path)
         except FileExistsError:
-            if needs_chmod:
+            if needs_set_mode:
                 fd = os.open(self.path, os.O_RDONLY)
             else:
                 fd = None
@@ -86,6 +86,38 @@ class File(Action):
                 self.set_mode(fd)
             finally:
                 os.close(fd)
+
+    def _mkpath(self, path: str):
+        parent = os.path.dirname(path)
+        if not os.path.isdir(parent):
+            self._mkpath(parent)
+
+        if self.mode is not None:
+            mode = self.mode
+        else:
+            mode = 0o777
+
+        self.log.info("%s: creating directory, mode: 0x%o", path, mode)
+        os.mkdir(path, mode=mode)
+
+        if self.pw_owner or self.pw_group:
+            uid = self.pw_owner.pw_uid if self.pw_owner is not None else -1
+            gid = self.pw_group.gr_gid if self.pw_group is not None else -1
+            self.log.info("%s: setting ownership to %d:%d", path, uid, gid)
+            os.chown(path, uid, gid)
+
+    def do_directory(self):
+        if os.path.isdir(self.path):
+            if self.mode:
+                self.log.info("%s: setting mode to 0o%o", self.path, self.mode)
+                os.chmod(self.path, self.mode)
+            if self.pw_owner or self.pw_group:
+                uid = self.pw_owner.pw_uid if self.pw_owner is not None else -1
+                gid = self.pw_group.gr_gid if self.pw_group is not None else -1
+                self.log.info("%s: setting ownership to %d:%d", self.path, uid, gid)
+                os.chown(self.path, uid, gid)
+        else:
+            self._mkpath(self.path)
 
     def run(self):
         # Resolve/validate owner and group before we perform any action

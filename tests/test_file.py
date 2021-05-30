@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import stat
 import os
+import mitogen.core
 
 
 class LocalMixin:
@@ -18,6 +19,12 @@ class LocalMixin:
             yield system
         finally:
             broker.shutdown()
+
+
+def read_umask() -> int:
+    umask = os.umask(0o777)
+    os.umask(umask)
+    return umask
 
 
 class TestTouch(LocalMixin, unittest.TestCase):
@@ -60,9 +67,7 @@ class TestTouch(LocalMixin, unittest.TestCase):
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
 
     def test_create_default_perms(self):
-        # Read current umask
-        umask = os.umask(0o777)
-        os.umask(umask)
+        umask = read_umask()
 
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
@@ -171,3 +176,84 @@ class TestAbsent(LocalMixin, unittest.TestCase):
                 ])
 
             self.assertFalse(os.path.exists(testdir))
+
+
+class TestDirectory(LocalMixin, unittest.TestCase):
+    def test_create(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testdir = os.path.join(workdir, "testdir1", "testdir2")
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Create test dir",
+                        "path": testdir,
+                        "state": "directory",
+                        "mode": 0o750,
+                    }
+                ])
+
+            st = os.stat(testdir)
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
+            st = os.stat(os.path.dirname(testdir))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
+
+    def test_exists(self):
+        umask = read_umask()
+
+        with tempfile.TemporaryDirectory() as workdir:
+            testdir = os.path.join(workdir, "testdir1", "testdir2")
+            os.makedirs(testdir, mode=0x700)
+
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Create test dur",
+                        "path": testdir,
+                        "state": "directory",
+                        "mode": 0o750,
+                    }
+                ])
+
+            st = os.stat(testdir)
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
+            st = os.stat(os.path.dirname(testdir))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
+
+    def test_exists_as_file(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testdir = os.path.join(workdir, "testdir1", "testdir2")
+            with open(os.path.join(workdir, "testdir1"), "wb"):
+                pass
+
+            with self.local_system() as system:
+                with self.assertRaises(mitogen.core.CallError):
+                    system.run_actions([
+                        {
+                            "action": "File",
+                            "name": "Create test dur",
+                            "path": testdir,
+                            "state": "directory",
+                        }
+                    ])
+
+    def test_create_default_perms(self):
+        umask = read_umask()
+
+        with tempfile.TemporaryDirectory() as workdir:
+            testdir = os.path.join(workdir, "testdir1", "testdir2")
+            with self.local_system() as system:
+                system.run_actions([
+                    {
+                        "action": "File",
+                        "name": "Create test dir",
+                        "path": testdir,
+                        "state": "directory",
+                    }
+                ])
+
+            st = os.stat(testdir)
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
+            st = os.stat(os.path.dirname(testdir))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
