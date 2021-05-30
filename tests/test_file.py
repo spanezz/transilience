@@ -18,15 +18,14 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test file",
-                        path=testfile,
-                        state="touch",
-                        mode=0o640,
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test file",
+                    path=testfile,
+                    state="touch",
+                    mode=0o640,
+                ),
+            ])
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
@@ -38,15 +37,14 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
                 pass
             os.chmod(testfile, 0o666)
 
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test file",
-                        path=testfile,
-                        state="touch",
-                        mode=0o640,
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test file",
+                    path=testfile,
+                    state="touch",
+                    mode=0o640,
+                ),
+            ])
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
@@ -56,14 +54,13 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test file",
-                        path=testfile,
-                        state="touch",
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test file",
+                    path=testfile,
+                    state="touch",
+                ),
+            ])
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o666 & ~umask)
@@ -73,15 +70,14 @@ class TestFile(LocalTestMixin, unittest.TestCase):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test file",
-                        path=testfile,
-                        state="file",
-                        mode=0o640,
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test file",
+                    path=testfile,
+                    state="file",
+                    mode=0o640,
+                ),
+            ])
 
             self.assertFalse(os.path.exists(testfile))
 
@@ -92,15 +88,14 @@ class TestFile(LocalTestMixin, unittest.TestCase):
                 pass
             os.chmod(testfile, 0o666)
 
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test file",
-                        path=testfile,
-                        state="file",
-                        mode=0o640,
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test file",
+                    path=testfile,
+                    state="file",
+                    mode=0o640,
+                ),
+            ])
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
@@ -110,14 +105,13 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
     def test_missing(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Remove missing file",
-                        path=testfile,
-                        state="absent",
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Remove missing file",
+                    path=testfile,
+                    state="absent",
+                ),
+            ])
 
             self.assertFalse(os.path.exists(testfile))
 
@@ -127,14 +121,13 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
             with open(testfile, "wb"):
                 pass
 
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Remove test file",
-                        path=testfile,
-                        state="absent",
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Remove test file",
+                    path=testfile,
+                    state="absent",
+                ),
+            ])
 
             self.assertFalse(os.path.exists(testfile))
 
@@ -145,14 +138,13 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
             with open(os.path.join(testdir, "testfile"), "wb"):
                 pass
 
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Remove test dir",
-                        path=testdir,
-                        state="absent",
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Remove test dir",
+                    path=testdir,
+                    state="absent",
+                ),
+            ])
 
             self.assertFalse(os.path.exists(testdir))
 
@@ -161,15 +153,14 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test dir",
-                        path=testdir,
-                        state="directory",
-                        mode=0o750,
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test dir",
+                    path=testdir,
+                    state="directory",
+                    mode=0o750,
+                ),
+            ])
 
             st = os.stat(testdir)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
@@ -183,15 +174,14 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
             testdir = os.path.join(workdir, "testdir1", "testdir2")
             os.makedirs(testdir, mode=0x700)
 
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test dur",
-                        path=testdir,
-                        state="directory",
-                        mode=0o750,
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test dur",
+                    path=testdir,
+                    state="directory",
+                    mode=0o750,
+                ),
+            ])
 
             st = os.stat(testdir)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
@@ -204,29 +194,27 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
             with open(os.path.join(workdir, "testdir1"), "wb"):
                 pass
 
-            with self.local_system() as system:
-                with self.assertRaises(mitogen.core.CallError):
-                    system.run_actions([
-                        actions.File(
-                            name="Create test dur",
-                            path=testdir,
-                            state="directory",
-                        ),
-                    ])
+            with self.assertRaises(mitogen.core.CallError):
+                self.system.run_actions([
+                    actions.File(
+                        name="Create test dur",
+                        path=testdir,
+                        state="directory",
+                    ),
+                ])
 
     def test_create_default_perms(self):
         umask = read_umask()
 
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
-            with self.local_system() as system:
-                system.run_actions([
-                    actions.File(
-                        name="Create test dir",
-                        path=testdir,
-                        state="directory",
-                    ),
-                ])
+            self.system.run_actions([
+                actions.File(
+                    name="Create test dir",
+                    path=testdir,
+                    state="directory",
+                ),
+            ])
 
             st = os.stat(testdir)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)

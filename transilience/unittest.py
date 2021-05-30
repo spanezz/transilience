@@ -1,16 +1,17 @@
 from __future__ import annotations
-import contextlib
 
 
 class LocalTestMixin:
-    @contextlib.contextmanager
-    def local_system(self):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
         import mitogen
         from transilience.system import Mitogen
-        broker = mitogen.master.Broker()
-        router = mitogen.master.Router(broker)
-        system = Mitogen("workdir", "local", router=router)
-        try:
-            yield system
-        finally:
-            broker.shutdown()
+        cls.broker = mitogen.master.Broker()
+        cls.router = mitogen.master.Router(cls.broker)
+        cls.system = Mitogen("workdir", "local", router=cls.router)
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls.broker.shutdown()
