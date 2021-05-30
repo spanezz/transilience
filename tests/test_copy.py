@@ -8,7 +8,7 @@ from transilience import actions
 
 
 class TestFile(LocalTestMixin, unittest.TestCase):
-    def test_create(self):
+    def test_create_src(self):
         with tempfile.TemporaryDirectory() as workdir:
             payload = "♥ test content"
             srcfile = os.path.join(workdir, "source")
@@ -21,6 +21,26 @@ class TestFile(LocalTestMixin, unittest.TestCase):
                 actions.Copy(
                     name="Create test file",
                     src=srcfile,
+                    dest=dstfile,
+                    mode=0o640,
+                )
+            ])
+
+            with open(dstfile, "rt") as fd:
+                self.assertEqual(fd.read(), payload)
+
+            st = os.stat(dstfile)
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+
+    def test_create_content(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            payload = "♥ test content"
+            dstfile = os.path.join(workdir, "destination")
+
+            self.system.run_actions([
+                actions.Copy(
+                    name="Create test file",
+                    content=payload,
                     dest=dstfile,
                     mode=0o640,
                 )

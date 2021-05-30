@@ -30,10 +30,11 @@ class Copy(Action):
      - src
      - unsafe_writes
      - validate
+     - src as directory
     """
     dest: str
     src: Optional[str] = None
-    content: Optional[bytes] = None
+    content: Optional[str, bytes] = None
     owner: Optional[str] = None
     group: Optional[str] = None
     mode: Union[str, int, None] = None
@@ -50,6 +51,9 @@ class Copy(Action):
             else:
                 with open(self.src, "rb") as fd:
                     self.content = fd.read()
+        else:
+            if isinstance(self.content, str):
+                self.content = self.content.encode()
 
     def set_mode(self, fd: int):
         if self.owner != -1 or self.group != -1:
