@@ -1,24 +1,11 @@
 from __future__ import annotations
-import contextlib
 import tempfile
 import unittest
 import stat
 import os
 import mitogen.core
-
-
-class LocalMixin:
-    @contextlib.contextmanager
-    def local_system(self):
-        import mitogen
-        from transilience.system import Mitogen
-        broker = mitogen.master.Broker()
-        router = mitogen.master.Router(broker)
-        system = Mitogen("workdir", "local", router=router)
-        try:
-            yield system
-        finally:
-            broker.shutdown()
+from transilience.unittest import LocalTestMixin
+from transilience import actions
 
 
 def read_umask() -> int:
@@ -27,19 +14,18 @@ def read_umask() -> int:
     return umask
 
 
-class TestTouch(LocalMixin, unittest.TestCase):
+class TestTouch(LocalTestMixin, unittest.TestCase):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test file",
-                        "path": testfile,
-                        "state": "touch",
-                        "mode": 0o640,
-                    }
+                    actions.File(
+                        name="Create test file",
+                        path=testfile,
+                        state="touch",
+                        mode=0o640,
+                    ),
                 ])
 
             st = os.stat(testfile)
@@ -54,13 +40,12 @@ class TestTouch(LocalMixin, unittest.TestCase):
 
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test file",
-                        "path": testfile,
-                        "state": "touch",
-                        "mode": 0o640,
-                    }
+                    actions.File(
+                        name="Create test file",
+                        path=testfile,
+                        state="touch",
+                        mode=0o640,
+                    ),
                 ])
 
             st = os.stat(testfile)
@@ -73,31 +58,29 @@ class TestTouch(LocalMixin, unittest.TestCase):
             testfile = os.path.join(workdir, "testfile")
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test file",
-                        "path": testfile,
-                        "state": "touch",
-                    }
+                    actions.File(
+                        name="Create test file",
+                        path=testfile,
+                        state="touch",
+                    ),
                 ])
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o666 & ~umask)
 
 
-class TestFile(LocalMixin, unittest.TestCase):
+class TestFile(LocalTestMixin, unittest.TestCase):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test file",
-                        "path": testfile,
-                        "state": "file",
-                        "mode": 0o640,
-                    }
+                    actions.File(
+                        name="Create test file",
+                        path=testfile,
+                        state="file",
+                        mode=0o640,
+                    ),
                 ])
 
             self.assertFalse(os.path.exists(testfile))
@@ -111,31 +94,29 @@ class TestFile(LocalMixin, unittest.TestCase):
 
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test file",
-                        "path": testfile,
-                        "state": "file",
-                        "mode": 0o640,
-                    }
+                    actions.File(
+                        name="Create test file",
+                        path=testfile,
+                        state="file",
+                        mode=0o640,
+                    ),
                 ])
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
 
 
-class TestAbsent(LocalMixin, unittest.TestCase):
+class TestAbsent(LocalTestMixin, unittest.TestCase):
     def test_missing(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Remove missing file",
-                        "path": testfile,
-                        "state": "absent",
-                    }
+                    actions.File(
+                        name="Remove missing file",
+                        path=testfile,
+                        state="absent",
+                    ),
                 ])
 
             self.assertFalse(os.path.exists(testfile))
@@ -148,12 +129,11 @@ class TestAbsent(LocalMixin, unittest.TestCase):
 
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Remove test file",
-                        "path": testfile,
-                        "state": "absent",
-                    }
+                    actions.File(
+                        name="Remove test file",
+                        path=testfile,
+                        state="absent",
+                    ),
                 ])
 
             self.assertFalse(os.path.exists(testfile))
@@ -167,30 +147,28 @@ class TestAbsent(LocalMixin, unittest.TestCase):
 
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Remove test dir",
-                        "path": testdir,
-                        "state": "absent",
-                    }
+                    actions.File(
+                        name="Remove test dir",
+                        path=testdir,
+                        state="absent",
+                    ),
                 ])
 
             self.assertFalse(os.path.exists(testdir))
 
 
-class TestDirectory(LocalMixin, unittest.TestCase):
+class TestDirectory(LocalTestMixin, unittest.TestCase):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test dir",
-                        "path": testdir,
-                        "state": "directory",
-                        "mode": 0o750,
-                    }
+                    actions.File(
+                        name="Create test dir",
+                        path=testdir,
+                        state="directory",
+                        mode=0o750,
+                    ),
                 ])
 
             st = os.stat(testdir)
@@ -207,13 +185,12 @@ class TestDirectory(LocalMixin, unittest.TestCase):
 
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test dur",
-                        "path": testdir,
-                        "state": "directory",
-                        "mode": 0o750,
-                    }
+                    actions.File(
+                        name="Create test dur",
+                        path=testdir,
+                        state="directory",
+                        mode=0o750,
+                    ),
                 ])
 
             st = os.stat(testdir)
@@ -230,12 +207,11 @@ class TestDirectory(LocalMixin, unittest.TestCase):
             with self.local_system() as system:
                 with self.assertRaises(mitogen.core.CallError):
                     system.run_actions([
-                        {
-                            "action": "File",
-                            "name": "Create test dur",
-                            "path": testdir,
-                            "state": "directory",
-                        }
+                        actions.File(
+                            name="Create test dur",
+                            path=testdir,
+                            state="directory",
+                        ),
                     ])
 
     def test_create_default_perms(self):
@@ -245,12 +221,11 @@ class TestDirectory(LocalMixin, unittest.TestCase):
             testdir = os.path.join(workdir, "testdir1", "testdir2")
             with self.local_system() as system:
                 system.run_actions([
-                    {
-                        "action": "File",
-                        "name": "Create test dir",
-                        "path": testdir,
-                        "state": "directory",
-                    }
+                    actions.File(
+                        name="Create test dir",
+                        path=testdir,
+                        state="directory",
+                    ),
                 ])
 
             st = os.stat(testdir)

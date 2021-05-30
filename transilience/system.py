@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Union, Optional, Iterator, Sequence
 from contextlib import contextmanager
-from .utils import atomic_writer
+import dataclasses
 import tempfile
 import subprocess
 import shutil
@@ -13,6 +13,8 @@ try:
     import mitogen.master
 except ModuleNotFoundError:
     mitogen = None
+from . import actions
+from .utils import atomic_writer
 
 if TYPE_CHECKING:
     from .actions import Action
@@ -53,25 +55,32 @@ else:
 
             self.remote = meth(remote_name=name, **kw)
 
-        def run_actions(self, actions: Sequence[Action]):
+        def run_actions(self, action_list: Sequence[actions.Action]):
             """
             Run a sequence of provisioning actions in the chroot
             """
-            return self.remote.call(self.remote_run_actions, actions)
+            serialized = []
+            for action in action_list:
+                if not isinstance(action, actions.Action):
+                    raise ValueError(f"action {action!r} is not an instance of Action")
+                d = dataclasses.asdict(action)
+                d["action"] = f"{action.__class__.__module__}.{action.__class__.__qualname__}"
+                serialized.append(d)
+            return self.remote.call(self.remote_run_actions, serialized)
 
         @classmethod
         def remote_run_actions(self, actions: Sequence[Action]):
-            import transilience.actions
+            import importlib
             res = []
             for action_info in actions:
                 action_name = action_info.pop("action", None)
                 if action_name is None:
                     raise ValueError(f"action {action_info!r} has no 'action' name")
-                action_cls = getattr(transilience.actions, action_name, None)
+                mod_name, _, cls_name = action_name.rpartition(".")
+                mod = importlib.import_module(mod_name)
+                action_cls = getattr(mod, cls_name, None)
                 if action_cls is None:
                     raise ValueError(f"action {action_name!r} not found in transilience.actions")
-                if not issubclass(action_cls, transilience.actions.Action):
-                    raise ValueError(f"action {action_name!r} is not a valid Action")
                 action = action_cls(**action_info)
                 res.append(action.run())
             return res

@@ -8,7 +8,7 @@ import os
 from .action import Action
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html#ansible-collections-ansible-builtin-file-module  # noqa
+# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
 @dataclass
 class File(Action):
     """
