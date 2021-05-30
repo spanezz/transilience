@@ -39,6 +39,8 @@ system.system.run_actions([
 ])
 ```
 
+Use any of the many [Mitogen connection methods](https://mitogen.networkgenomics.com/api.html#connection-methods).
+
 Look into transilience.actions for available actions.
 
 Feel free to add new ones!
