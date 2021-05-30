@@ -1,30 +1,37 @@
 from __future__ import annotations
 from typing import Union, Optional
 from dataclasses import dataclass
-import logging
 import shutil
 import pwd
 import grp
 import os
-# from .system import System
-
-
-# https://docs.ansible.com/ansible/latest/collections/index_module.html
-
-@dataclass
-class Action:
-    name: str
-
-    def __post_init__(self):
-        self.log = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
-
-    def run(self):
-        raise NotImplementedError(f"run not implemented for action {self.__class__.__name__}: {self.name}")
+from .action import Action
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html#ansible-collections-ansible-builtin-file-module  # noqa
 @dataclass
 class File(Action):
+    """
+    Same as ansible's builtin.file.
+
+    Not yet implemented:
+     - state=hard
+     - state=link
+     - access_time
+     - modification_time
+     - attributes
+     - follow
+     - force
+     - mode as string (integer works)
+     - modification_time_format
+     - recurse
+     - selevel
+     - serole
+     - setype
+     - seuser
+     - src
+     - unsafe_writes
+    """
     path: str
     owner: Optional[str] = None
     group: Optional[str] = None
@@ -134,70 +141,3 @@ class File(Action):
         if meth is None:
             raise NotImplementedError(f"File state {self.state!r} is not implemented")
         return meth()
-
-
-# @dataclass
-# class AptInstall(Action):
-#     packages: Sequence[str]
-#     recommends: bool = False
-#
-#     def run(self, system: System):
-#         """
-#         Install the given package(s), if they are not installed yet
-#         """
-#         cmd = ["apt", "-y", "install"]
-#         if not self.recommends:
-#             cmd.append("--no-install-recommends")
-#
-#         has_packages = False
-#         for pkg in self.packages:
-#             if system.has_file("var", "lib", "dpkg", "info", f"{pkg}.list"):
-#                 continue
-#             cmd.append(pkg)
-#             has_packages = True
-#
-#         if not has_packages:
-#             return
-#
-#         system.run(cmd)
-#
-#
-# @dataclass
-# class AptRemove(Action):
-#     packages: Sequence[str]
-#     purge: bool = False
-#
-#     def run(self, system: System):
-#         """
-#         Remove the given packages
-#         """
-#         cmd = ["apt", "-y", "remove" if self.purge is False else "purge"]
-#         for pkg in self.packages:
-#             # TODO: check in /var/lib/dpkg if they are already removed/purged
-#             cmd.append(pkg)
-#         system.run(cmd)
-#
-#
-# @dataclass
-# class AptInstallDeb(Action):
-#     packages: Sequence[str]
-#     recommends: bool = False
-#
-#     def run(self, system: System):
-#         """
-#         Install the given package(s), if they are not installed yet
-#         """
-#         with system.tempdir() as workdir:
-#             system_paths = []
-#             for package in self.packages:
-#                 system.copy_to(package, workdir)
-#                 system_paths.append(os.path.join(workdir, os.path.basename(package)))
-#
-#             cmd = ["apt", "-y", "install"]
-#             if not self.recommends:
-#                 cmd.append("--no-install-recommends")
-#
-#             for path in system_paths:
-#                 cmd.append(path)
-#
-#             system.run(cmd)
