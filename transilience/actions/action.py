@@ -1,6 +1,10 @@
 from __future__ import annotations
+from typing import List
 from dataclasses import dataclass
+import subprocess
 import logging
+import shlex
+import os
 
 
 @dataclass
@@ -9,6 +13,16 @@ class Action:
 
     def __post_init__(self):
         self.log = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
+
+    def run_command(self, cmd: List[str], check=True, **kw) -> subprocess.CompletedProcess:
+        """
+        Run the given command inside the chroot
+        """
+        self.log.debug("%s: running %s", self.name, " ".join(shlex.quote(x) for x in cmd))
+        if "env" not in kw:
+            kw["env"] = dict(os.environ)
+            kw["env"]["LANG"] = "C"
+        return subprocess.run(cmd, check=check, **kw)
 
     def run(self):
         raise NotImplementedError(f"run not implemented for action {self.__class__.__name__}: {self.name}")

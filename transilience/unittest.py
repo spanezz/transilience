@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 import contextlib
 import subprocess
 import logging
@@ -67,8 +68,12 @@ privs.drop()
 class Chroot:
     running_chroots = {}
 
-    def __init__(self, chroot_dir: str):
-        self.chroot_dir = chroot_dir
+    def __init__(self, name: str, chroot_dir: Optional[str] = None):
+        self.name = name
+        if chroot_dir is None:
+            self.chroot_dir = self.get_chroot_dir(name)
+        else:
+            self.chroot_dir = chroot_dir
         self.machine_name = f"transilience-{uuid.uuid4()}"
 
     def start(self):
@@ -106,7 +111,7 @@ class Chroot:
 
         log.debug("%s: running %s", self.machine_name, " ".join(shlex.quote(c) for c in cmd))
         with privs.root():
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, capture_output=True)
         log.debug("%s: started", self.machine_name)
         self.running_chroots[self.machine_name] = self
 
@@ -114,13 +119,13 @@ class Chroot:
         cmd = ["machinectl", "terminate", self.machine_name]
         log.debug("%s: running %s", self.machine_name, " ".join(shlex.quote(c) for c in cmd))
         with privs.root():
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, capture_output=True)
         log.debug("%s: stopped", self.machine_name)
         del self.running_chroots[self.machine_name]
 
     @classmethod
     def create(cls, chroot_name: str) -> "Chroot":
-        res = cls(cls.get_chroot_dir(chroot_name))
+        res = cls(chroot_name)
         res.start()
         return res
 
@@ -160,3 +165,31 @@ class LocalTestMixin:
     def tearDownClass(cls):
         super().tearDownClass()
         cls.broker.shutdown()
+
+
+class ChrootTestMixin:
+    """
+    Mixin to run tests over a setns connection to an ephemeral systemd-nspawn
+    container running one of the test chroots
+    """
+    chroot_name = "buster"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        import mitogen
+        from transilience.system import Mitogen
+        cls.broker = mitogen.master.Broker()
+        cls.router = mitogen.master.Router(cls.broker)
+        cls.chroot = Chroot.create(cls.chroot_name)
+        with privs.root():
+            cls.system = Mitogen(
+                    cls.chroot.name, "setns", kind="machinectl",
+                    python_path="/usr/bin/python3",
+                    container=cls.chroot.machine_name, router=cls.router)
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls.broker.shutdown()
+        cls.chroot.stop()
