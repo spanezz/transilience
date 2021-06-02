@@ -1,6 +1,10 @@
 from __future__ import annotations
 import contextlib
+import subprocess
+import logging
 import atexit
+import shlex
+import uuid
 import os
 
 log = logging.getLogger(__name__)
@@ -60,7 +64,86 @@ privs = ProcessPrivs()
 privs.drop()
 
 
+class Chroot:
+    running_chroots = {}
+
+    def __init__(self, chroot_dir: str):
+        self.chroot_dir = chroot_dir
+        self.machine_name = f"transilience-{uuid.uuid4()}"
+
+    def start(self):
+        """
+        Start nspawn on this given chroot.
+
+        The systemd-nspawn command is run contained into its own unit using
+        systemd-run
+        """
+        unit_config = [
+            'KillMode=mixed',
+            'Type=notify',
+            'RestartForceExitStatus=133',
+            'SuccessExitStatus=133',
+            'Slice=machine.slice',
+            'Delegate=yes',
+            'TasksMax=16384',
+            'WatchdogSec=3min',
+        ]
+
+        cmd = ["systemd-run"]
+        for c in unit_config:
+            cmd.append(f"--property={c}")
+
+        cmd.extend((
+            "systemd-nspawn",
+            "--quiet",
+            "--ephemeral",
+            f"--directory={self.chroot_dir}",
+            f"--machine={self.machine_name}",
+            "--boot",
+            "--notify-ready=yes"))
+
+        log.info("%s: starting machine using image %s", self.machine_name, self.chroot_dir)
+
+        log.debug("%s: running %s", self.machine_name, " ".join(shlex.quote(c) for c in cmd))
+        with privs.root():
+            subprocess.run(cmd, check=True)
+        log.debug("%s: started", self.machine_name)
+        self.running_chroots[self.machine_name] = self
+
+    def stop(self):
+        cmd = ["machinectl", "terminate", self.machine_name]
+        log.debug("%s: running %s", self.machine_name, " ".join(shlex.quote(c) for c in cmd))
+        with privs.root():
+            subprocess.run(cmd, check=True)
+        log.debug("%s: stopped", self.machine_name)
+        del self.running_chroots[self.machine_name]
+
+    @classmethod
+    def create(cls, chroot_name: str) -> "Chroot":
+        res = cls(cls.get_chroot_dir(chroot_name))
+        res.start()
+        return res
+
+    @classmethod
+    def get_chroot_dir(cls, chroot_name: str):
+        chroot_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test_chroots", chroot_name))
+        if not os.path.isdir(chroot_dir):
+            raise RuntimeError(f"{chroot_dir} does not exists or is not a chroot directory")
+        return chroot_dir
+
+
+@atexit.register
+def cleanup():
+    # Use a list to prevent changing running_chroots during iteration
+    for chroot in list(Chroot.running_chroots.values()):
+        chroot.stop()
+
+
 class LocalTestMixin:
+    """
+    Mixin to run tests over a 'local' connection to the same system where tests
+    are run
+    """
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

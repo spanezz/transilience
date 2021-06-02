@@ -19,7 +19,7 @@ do_buster() {
     make_test_root
 
     sudo btrfs subvolume create "$root"
-    sudo eatmydata debootstrap --variant=minbase --include=python3 buster "$root"
+    sudo eatmydata debootstrap --variant=minbase --include=python3,dbus,systemd buster "$root"
 }
 
 if [ -d "$TEST_ROOT/$NAME" ]
