@@ -1,10 +1,13 @@
 from __future__ import annotations
-from typing import List
+from typing import TYPE_CHECKING, List
 from dataclasses import dataclass
 import subprocess
 import logging
 import shlex
 import os
+
+if TYPE_CHECKING:
+    import transilience.system
 
 
 @dataclass
@@ -24,7 +27,7 @@ class Action:
             kw["env"]["LANG"] = "C"
         return subprocess.run(cmd, check=check, **kw)
 
-    def run(self):
+    def run(self, system: transilience.system.System):
         raise NotImplementedError(f"run not implemented for action {self.__class__.__name__}: {self.name}")
 
 

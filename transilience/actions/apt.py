@@ -1,8 +1,11 @@
 from __future__ import annotations
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, List
 from dataclasses import dataclass, field
 import os
 from .action import Action
+
+if TYPE_CHECKING:
+    import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html
@@ -57,7 +60,7 @@ class Apt(Action):
 
         self.run_command(cmd)
 
-    def run(self):
+    def run(self, system: transilience.system.System):
         if self.state == "present":
             self.do_present()
         else:

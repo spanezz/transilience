@@ -1,11 +1,14 @@
 from __future__ import annotations
-from typing import Union, Optional
+from typing import TYPE_CHECKING, Union, Optional
 from dataclasses import dataclass
 import shutil
 import pwd
 import grp
 import os
 from .action import Action
+
+if TYPE_CHECKING:
+    import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
@@ -126,7 +129,7 @@ class File(Action):
         else:
             self._mkpath(self.path)
 
-    def run(self):
+    def run(self, system: transilience.system.System):
         # Resolve/validate owner and group before we perform any action
         if self.owner is not None:
             self.pw_owner = pwd.getpwnam(self.owner)

@@ -1,10 +1,13 @@
 from __future__ import annotations
-from typing import Union, Optional
+from typing import TYPE_CHECKING, Union, Optional
 from dataclasses import dataclass
 import pwd
 import grp
 import os
 from .action import Action
+
+if TYPE_CHECKING:
+    import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html
@@ -66,7 +69,7 @@ class Copy(Action):
             os.fchmod(fd, self.mode)
             self.log.info("%s: file mode set to 0o%o", self.dest, self.mode)
 
-    def run(self):
+    def run(self, system: transilience.system.System):
         # Resolve/validate owner and group before we perform any action
         if self.owner is not None:
             self.owner = pwd.getpwnam(self.owner).pw_uid

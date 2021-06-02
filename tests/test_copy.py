@@ -7,7 +7,7 @@ from transilience.unittest import LocalTestMixin
 from transilience import actions
 
 
-class TestFile(LocalTestMixin, unittest.TestCase):
+class TestCopy(LocalTestMixin, unittest.TestCase):
     def test_create_src(self):
         with tempfile.TemporaryDirectory() as workdir:
             payload = "♥ test content"

@@ -10,7 +10,9 @@ import shlex
 import logging
 try:
     import mitogen
+    import mitogen.core
     import mitogen.master
+    import mitogen.service
 except ModuleNotFoundError:
     mitogen = None
 from . import actions
@@ -34,6 +36,10 @@ if mitogen is None:
         def __init__(self, *args, **kw):
             raise NotImplementedError("the mitogen python module is not installed on this system")
 else:
+    class LocalMitogen(System):
+        def __init__(self, context: mitogen.core.Context):
+            self.context = context
+
     class Mitogen(System):
         """
         Access a system via Mitogen
@@ -48,12 +54,13 @@ else:
                     self.internal_router = mitogen.master.Router(self.internal_broker)
                 router = self.internal_router
             self.router = router
+            self.pool = mitogen.service.get_or_create_pool(router=self.router)
 
             meth = getattr(self.router, method, None)
             if meth is None:
                 raise KeyError(f"conncetion method {method!r} not available in mitogen")
 
-            self.remote = meth(remote_name=name, **kw)
+            self.context = meth(remote_name=name, **kw)
 
         def run_actions(self, action_list: Sequence[actions.Action]):
             """
@@ -66,11 +73,13 @@ else:
                 d = dataclasses.asdict(action)
                 d["__action__"] = f"{action.__class__.__module__}.{action.__class__.__qualname__}"
                 serialized.append(d)
-            return self.remote.call(self.remote_run_actions, serialized)
+            return self.context.call(self.remote_run_actions, serialized)
 
         @classmethod
-        def remote_run_actions(self, actions: Sequence[Action]):
+        @mitogen.core.takes_econtext
+        def remote_run_actions(self, actions: Sequence[Action], econtext: mitogen.core.ExternalContext = None):
             import importlib
+            system = LocalMitogen(econtext)
             res = []
             for action_info in actions:
                 action_name = action_info.pop("__action__", None)
@@ -82,7 +91,7 @@ else:
                 if action_cls is None:
                     raise ValueError(f"action {action_name!r} not found in transilience.actions")
                 action = action_cls(**action_info)
-                res.append(action.run())
+                res.append(action.run(system))
             return res
 
 

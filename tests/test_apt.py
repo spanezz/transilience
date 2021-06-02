@@ -16,7 +16,7 @@ class TestFile(ChrootTestMixin, unittest.TestCase):
         ])
 
     def test_install_missing(self):
-        self.assertFalse(self.system.remote.call(os.path.exists, "/usr/games/cowsay"))
+        self.assertFalse(self.system.context.call(os.path.exists, "/usr/games/cowsay"))
 
         self.system.run_actions([
             actions.Apt(
@@ -26,4 +26,4 @@ class TestFile(ChrootTestMixin, unittest.TestCase):
             )
         ])
 
-        self.assertTrue(self.system.remote.call(os.path.exists, "/usr/games/cowsay"))
+        self.assertTrue(self.system.context.call(os.path.exists, "/usr/games/cowsay"))
