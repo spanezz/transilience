@@ -1,0 +1,30 @@
+#!/bin/bash
+
+NAME=${1:?"Usage: $0 chroot_name"}
+TEST_ROOT="$(dirname $0)/test_chroots"
+
+make_test_root() {
+    test -d "$TEST_ROOT" || mkdir -p "$TEST_ROOT"
+
+    test -e "$TEST_ROOT/CACHEDIR.TAG" || cat << EOF > "$TEST_ROOT/CACHEDIR.TAG"
+Signature: 8a477f597d28d172789f06886806bc55
+# chroots used for testing transilience, can be regenerated with make-test-chroot
+EOF
+}
+
+do_buster() {
+    local name="$1"
+    local root="$TEST_ROOT/$name"
+    
+    make_test_root
+
+    sudo debootstrap --variant=minbase --include=python3 buster "$root"
+}
+
+if [ -d "$TEST_ROOT/$NAME" ]
+then
+    echo "$TEST_ROOT/$NAME already exists" >&2
+    exit 1
+fi
+
+do_$NAME $NAME
