@@ -39,12 +39,6 @@ system.system.run_actions([
 ])
 ```
 
-Use any of the many [Mitogen connection methods](https://mitogen.networkgenomics.com/api.html#connection-methods).
-
-Look into transilience.actions for available actions.
-
-Feel free to add new ones!
-
 
 ## Design
 
@@ -60,7 +54,8 @@ In other words:
  * `transilience.actions` is a collection of idempotent, reusable provisioning
    macros in the style of Ansible tasks. They can be used without transilience.
  * `transilience.system` contains executors that can run actions anywhere
-   [Mitogen](https://mitogen.networkgenomics.com) can reach
+   [Mitogen](https://mitogen.networkgenomics.com/api.html#connection-methods)
+   can reach
  * For provisioning, one can write a simple Python script that feeds Actions to
    local or remote systems. If an action depends on the results of previous
    actions, the logic can be coded in simple Python.
