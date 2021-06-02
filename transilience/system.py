@@ -37,8 +37,31 @@ if mitogen is None:
             raise NotImplementedError("the mitogen python module is not installed on this system")
 else:
     class LocalMitogen(System):
-        def __init__(self, context: mitogen.core.Context):
-            self.context = context
+        def __init__(self, parent_context: mitogen.core.Context, router: mitogen.core.Router):
+            self.parent_context = parent_context
+            self.router = router
+
+        @contextmanager
+        def transfer_file(self, src: str, dst: str, **kw):
+            """
+            Fetch file ``src`` from the controller and write it atomically as
+            ``dst``.
+
+            Returns the temporary file object as context variable before
+            closing and renaming it, to allow to set file metadata at the right
+            time.
+            """
+            dst = os.path.abspath(dst)
+            with atomic_writer(dst, mode="wb", **kw) as fd:
+                ok, metadata = mitogen.service.FileService.get(
+                    context=self.parent_context,
+                    path=src,
+                    out_fp=fd,
+                )
+                if not ok:
+                    raise IOError(f'Transfer of {src!r} was interrupted')
+
+                yield fd
 
     class Mitogen(System):
         """
@@ -54,13 +77,26 @@ else:
                     self.internal_router = mitogen.master.Router(self.internal_broker)
                 router = self.internal_router
             self.router = router
-            self.pool = mitogen.service.get_or_create_pool(router=self.router)
+            self.file_service = mitogen.service.FileService(router)
+            self.pool = mitogen.service.Pool(router=self.router, services=[self.file_service])
 
             meth = getattr(self.router, method, None)
             if meth is None:
                 raise KeyError(f"conncetion method {method!r} not available in mitogen")
 
             self.context = meth(remote_name=name, **kw)
+
+        def share_file(self, pathname: str):
+            """
+            Register a pathname as exportable to children
+            """
+            self.file_service.register(pathname)
+
+        def share_file_prefix(self, pathname: str):
+            """
+            Register a pathname prefix as exportable to children
+            """
+            self.file_service.register_prefix(pathname)
 
         def run_actions(self, action_list: Sequence[actions.Action]):
             """
@@ -73,13 +109,17 @@ else:
                 d = dataclasses.asdict(action)
                 d["__action__"] = f"{action.__class__.__module__}.{action.__class__.__qualname__}"
                 serialized.append(d)
-            return self.context.call(self.remote_run_actions, serialized)
+            return self.context.call(self.remote_run_actions, self.router.myself(), serialized)
 
         @classmethod
-        @mitogen.core.takes_econtext
-        def remote_run_actions(self, actions: Sequence[Action], econtext: mitogen.core.ExternalContext = None):
+        @mitogen.core.takes_router
+        def remote_run_actions(
+                self,
+                context: mitogen.core.Context,
+                actions: Sequence[Action],
+                router: mitogen.core.Router = None):
             import importlib
-            system = LocalMitogen(econtext)
+            system = LocalMitogen(parent_context=context, router=router)
             res = []
             for action_info in actions:
                 action_name = action_info.pop("__action__", None)

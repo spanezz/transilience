@@ -17,6 +17,7 @@ class TestCopy(LocalTestMixin, unittest.TestCase):
 
             dstfile = os.path.join(workdir, "destination")
 
+            self.system.share_file_prefix(workdir)
             self.system.run_actions([
                 actions.Copy(
                     name="Create test file",

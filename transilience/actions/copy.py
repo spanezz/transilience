@@ -5,6 +5,7 @@ import pwd
 import grp
 import os
 from .action import Action
+from transilience.utils import atomic_writer
 
 if TYPE_CHECKING:
     import transilience.system
@@ -42,22 +43,6 @@ class Copy(Action):
     group: Optional[str] = None
     mode: Union[str, int, None] = None
 
-    def __post_init__(self):
-        super().__post_init__()
-        # TODO: this needs to be executed locally
-        if self.src is None and self.content is None:
-            raise ValueError(f"{self.__class__}: one of src or content must be set")
-        if self.src is not None:
-            if os.path.isdir(self.src):
-                # TODO: set contents to compressed tarball
-                raise NotImplementedError(f"{self.__class__}: copying directories not yet implemented")
-            else:
-                with open(self.src, "rb") as fd:
-                    self.content = fd.read()
-        else:
-            if isinstance(self.content, str):
-                self.content = self.content.encode()
-
     def set_mode(self, fd: int):
         if self.owner != -1 or self.group != -1:
             os.fchown(fd, self.owner, self.group)
@@ -66,8 +51,29 @@ class Copy(Action):
         if self.mode is not None:
             if isinstance(self.mode, str):
                 raise NotImplementedError("string modes not yet implemented")
-            os.fchmod(fd, self.mode)
-            self.log.info("%s: file mode set to 0o%o", self.dest, self.mode)
+            mode = self.mode
+        else:
+            cur_umask = os.umask(0)
+            os.umask(cur_umask)
+            mode = 0o666 & ~cur_umask
+
+        os.fchmod(fd, mode)
+        self.log.info("%s: file mode set to 0o%o", self.dest, mode)
+
+    def write_content(self):
+        if isinstance(self.content, str):
+            content = self.content.encode()
+        else:
+            content = self.content
+
+        with atomic_writer(self.dest, "wb", chmod=None) as fd:
+            fd.write(content)
+
+            self.set_mode(fd.fileno())
+
+    def write_src(self, system: transilience.system.System):
+        with system.transfer_file(self.src, self.dest, chmod=None) as fd:
+            self.set_mode(fd.fileno())
 
     def run(self, system: transilience.system.System):
         # Resolve/validate owner and group before we perform any action
@@ -80,8 +86,7 @@ class Copy(Action):
         else:
             self.group = -1
 
-        # TODO: atomic write
-        with open(self.dest, "wb") as fd:
-            fd.write(self.content)
-
-            self.set_mode(fd.fileno())
+        if self.content is not None:
+            self.write_content()
+        else:
+            self.write_src(system)
