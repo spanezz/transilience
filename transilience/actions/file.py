@@ -44,17 +44,20 @@ class File(Action):
     # src: Optional[str] = None
 
     def set_mode(self, fd: int):
-        if self.pw_owner or self.pw_group:
-            uid = self.pw_owner.pw_uid if self.pw_owner is not None else -1
-            gid = self.pw_group.gr_gid if self.pw_group is not None else -1
-            os.fchown(fd, uid, gid)
-            self.log.info("%s: file ownership set to %d %d", self.path, uid, gid)
+        if self.owner != -1 or self.group != -1:
+            os.fchown(fd, self.owner, self.group)
+            self.log.info("%s: file ownership set to %d %d", self.dest, self.owner, self.group)
 
         if self.mode is not None:
             if isinstance(self.mode, str):
                 raise NotImplementedError("string modes not yet implemented")
-            os.fchmod(fd, self.mode)
-            self.log.info("%s: file mode set to 0o%o", self.path, self.mode)
+        else:
+            cur_umask = os.umask(0)
+            os.umask(cur_umask)
+            self.mode = 0o666 & ~cur_umask
+
+        os.fchmod(fd, self.mode)
+        self.log.info("%s: file mode set to 0o%o", self.path, self.mode)
 
     def do_absent(self):
         if os.path.isdir(self.path):
@@ -76,7 +79,7 @@ class File(Action):
             os.close(fd)
 
     def do_touch(self):
-        needs_set_mode = self.pw_owner is not None or self.pw_group is not None or self.mode is not None
+        needs_set_mode = self.owner != -1 or self.group != -1 or self.mode is not None
 
         try:
             if needs_set_mode:
@@ -110,35 +113,36 @@ class File(Action):
         self.log.info("%s: creating directory, mode: 0x%o", path, mode)
         os.mkdir(path, mode=mode)
 
-        if self.pw_owner or self.pw_group:
-            uid = self.pw_owner.pw_uid if self.pw_owner is not None else -1
-            gid = self.pw_group.gr_gid if self.pw_group is not None else -1
-            self.log.info("%s: setting ownership to %d:%d", path, uid, gid)
-            os.chown(path, uid, gid)
+        if self.owner != -1 or self.group != -1:
+            self.log.info("%s: directory ownership set to %d %d", path, self.owner, self.group)
+            os.chown(path, self.owner, self.group)
 
     def do_directory(self):
         if os.path.isdir(self.path):
-            if self.mode:
-                self.log.info("%s: setting mode to 0o%o", self.path, self.mode)
-                os.chmod(self.path, self.mode)
-            if self.pw_owner or self.pw_group:
-                uid = self.pw_owner.pw_uid if self.pw_owner is not None else -1
-                gid = self.pw_group.gr_gid if self.pw_group is not None else -1
-                self.log.info("%s: setting ownership to %d:%d", self.path, uid, gid)
-                os.chown(self.path, uid, gid)
+            if self.mode is None:
+                cur_umask = os.umask(0)
+                os.umask(cur_umask)
+                self.mode = 0o777 & ~cur_umask
+
+            self.log.info("%s: setting mode to 0o%o", self.path, self.mode)
+            os.chmod(self.path, self.mode)
+
+            if self.owner != -1 or self.group != -1:
+                self.log.info("%s: directory ownership set to %d %d", self.path, self.owner, self.group)
+                os.chown(self.path, self.owner, self.group)
         else:
             self._mkpath(self.path)
 
     def run(self, system: transilience.system.System):
         # Resolve/validate owner and group before we perform any action
         if self.owner is not None:
-            self.pw_owner = pwd.getpwnam(self.owner)
+            self.owner = pwd.getpwnam(self.owner).pw_uid
         else:
-            self.pw_owner = None
+            self.owner = -1
         if self.group is not None:
-            self.pw_group = grp.getgenam(self.group)
+            self.group = grp.getgenam(self.group).gr_gid
         else:
-            self.pw_group = None
+            self.group = -1
 
         meth = getattr(self, f"do_{self.state}", None)
         if meth is None:

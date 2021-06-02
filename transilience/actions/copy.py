@@ -51,23 +51,20 @@ class Copy(Action):
         if self.mode is not None:
             if isinstance(self.mode, str):
                 raise NotImplementedError("string modes not yet implemented")
-            mode = self.mode
         else:
             cur_umask = os.umask(0)
             os.umask(cur_umask)
-            mode = 0o666 & ~cur_umask
+            self.mode = 0o666 & ~cur_umask
 
-        os.fchmod(fd, mode)
-        self.log.info("%s: file mode set to 0o%o", self.dest, mode)
+        os.fchmod(fd, self.mode)
+        self.log.info("%s: file mode set to 0o%o", self.dest, self.mode)
 
     def write_content(self):
         if isinstance(self.content, str):
-            content = self.content.encode()
-        else:
-            content = self.content
+            self.content = self.content.encode()
 
         with atomic_writer(self.dest, "wb", chmod=None) as fd:
-            fd.write(content)
+            fd.write(self.content)
 
             self.set_mode(fd.fileno())
 
