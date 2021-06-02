@@ -1,7 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Union, Optional, Iterator, Sequence
+from typing import TYPE_CHECKING, Dict, List, Union, Optional, Iterator, Sequence, Generator, Any
 from contextlib import contextmanager
-import dataclasses
 import tempfile
 import subprocess
 import shutil
@@ -13,13 +12,12 @@ try:
     import mitogen.core
     import mitogen.master
     import mitogen.service
+    import mitogen.parent
 except ModuleNotFoundError:
     mitogen = None
 from . import actions
 from .utils import atomic_writer
-
-if TYPE_CHECKING:
-    from .actions import Action
+from .actions import Action
 
 log = logging.getLogger(__name__)
 
@@ -98,41 +96,34 @@ else:
             """
             self.file_service.register_prefix(pathname)
 
-        def run_actions(self, action_list: Sequence[actions.Action]):
+        def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action]:
             """
             Run a sequence of provisioning actions in the chroot
             """
-            serialized = []
-            for action in action_list:
-                if not isinstance(action, actions.Action):
-                    raise ValueError(f"action {action!r} is not an instance of Action")
-                d = dataclasses.asdict(action)
-                d["__action__"] = f"{action.__class__.__module__}.{action.__class__.__qualname__}"
-                serialized.append(d)
-            return self.context.call(self.remote_run_actions, self.router.myself(), serialized)
+            # Send out all calls in a pipeline
+            results = []
+            with mitogen.parent.CallChain(self.context, pipelined=True) as chain:
+                for action in action_list:
+                    if not isinstance(action, actions.Action):
+                        raise ValueError(f"action {action!r} is not an instance of Action")
+                    results.append(
+                        chain.call_async(self.remote_run_actions, self.router.myself(), action.serialize())
+                    )
+
+            for res in results:
+                yield Action.deserialize(res.get().unpickle())
 
         @classmethod
         @mitogen.core.takes_router
         def remote_run_actions(
                 self,
                 context: mitogen.core.Context,
-                actions: Sequence[Action],
-                router: mitogen.core.Router = None):
-            import importlib
+                action: Action,
+                router: mitogen.core.Router = None) -> Dict[str, Any]:
             system = LocalMitogen(parent_context=context, router=router)
-            res = []
-            for action_info in actions:
-                action_name = action_info.pop("__action__", None)
-                if action_name is None:
-                    raise ValueError(f"action {action_info!r} has no '__action__' element")
-                mod_name, _, cls_name = action_name.rpartition(".")
-                mod = importlib.import_module(mod_name)
-                action_cls = getattr(mod, cls_name, None)
-                if action_cls is None:
-                    raise ValueError(f"action {action_name!r} not found in transilience.actions")
-                action = action_cls(**action_info)
-                res.append(action.run(system))
-            return res
+            action = Action.deserialize(action)
+            action.run(system)
+            return action.serialize()
 
 
 class Chroot(System):

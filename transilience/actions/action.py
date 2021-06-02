@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List
-from dataclasses import dataclass
+from typing import TYPE_CHECKING, List, Dict, Any
+from dataclasses import dataclass, asdict
 import subprocess
+import importlib
 import logging
 import shlex
 import os
@@ -30,6 +31,30 @@ class Action:
     def run(self, system: transilience.system.System):
         raise NotImplementedError(f"run not implemented for action {self.__class__.__name__}: {self.name}")
 
+    def serialize(self) -> Dict[str, Any]:
+        """
+        Serialize this action as a dict
+        """
+        d = asdict(self)
+        d["__action__"] = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+        return d
+
+    @classmethod
+    def deserialize(cls, serialized: Dict[str, Any]) -> "Action":
+        """
+        Deserialize an action form a dict
+        """
+        action_name = serialized.pop("__action__", None)
+        if action_name is None:
+            raise ValueError(f"action {serialized!r} has no '__action__' element")
+        mod_name, _, cls_name = action_name.rpartition(".")
+        mod = importlib.import_module(mod_name)
+        action_cls = getattr(mod, cls_name, None)
+        if action_cls is None:
+            raise ValueError(f"action {action_name!r} not found in transilience.actions")
+        if not issubclass(action_cls, Action):
+            raise ValueError(f"action {action_name!r} is not an subclass of transilience.actions.Action")
+        return action_cls(**serialized)
 
 # https://docs.ansible.com/ansible/latest/collections/index_module.html
 
