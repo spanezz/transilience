@@ -132,6 +132,9 @@ class Chroot:
         return chroot_dir
 
 
+# We need to use atextit, because unittest won't run
+# tearDown/tearDownClass/tearDownModule methods in case of KeyboardInterrupt
+# and we need to make sure to terminate the nspawn containers at exit
 @atexit.register
 def cleanup():
     # Use a list to prevent changing running_chroots during iteration
