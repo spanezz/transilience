@@ -46,16 +46,38 @@ Look into transilience.actions for available actions.
 Feel free to add new ones!
 
 
+## Design
+
+The basic ideas of Transilience:
+
+ * Provisioning building blocks that you can reuse freely and follow a
+   well-known API
+ * A way to run them anywhere Mythogen can reach
+ * Logic coded in straightforward Python instead of templated YAML
+
+In other words:
+
+ * `transilience.actions` is a collection of idempotent, reusable provisioning
+   macros in the style of Ansible tasks. They can be used without transilience.
+ * `transilience.system` contains executors that can run actions anywhere
+   [Mitogen](https://mitogen.networkgenomics.com) can reach
+ * For provisioning, one can write a simple Python script that feeds Actions to
+   local or remote systems. If an action depends on the results of previous
+   actions, the logic can be coded in simple Python.
+
+
 ## Adding actions
 
-Actions are subclasses of `transilience.action.Action`.
+Actions are subclasses of `transilience.action.Action`, which is a
+[dataclass](https://docs.python.org/3/library/dataclasses.html) with an extra
+`run()` method.
 
 The `__post_init__` constructor can do preprocessing client-side.
 
 `run()` is the main function executed on the remote side.
 
-dataclass attributes are transmitted as they are on the remote side. See
-[Mitogen RPC serialization rules](https://mitogen.networkgenomics.com/getting_started.html#rpc-serialization-rules)
+dataclass attributes are transmitted as they are on the remote side, filled
+further as the action is performed, and then sent back. See [Mitogen RPC serialization rules](https://mitogen.networkgenomics.com/getting_started.html#rpc-serialization-rules)
 for what types can be used.
 
 
