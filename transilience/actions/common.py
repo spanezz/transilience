@@ -120,10 +120,12 @@ class FileMixin:
             outfd.flush()
             # if sync:
             #     os.fdatasync(fd)
+            self.log.info("%s: file contents written", path)
 
             self._set_fd_perms(path, fd)
 
             os.rename(tmppath, path)
+            self.log.info("%s: original file replaced", path)
             self.set_changed()
         except Exception:
             os.unlink(tmppath)
