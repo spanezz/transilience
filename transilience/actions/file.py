@@ -43,18 +43,22 @@ class File(FileMixin, Action):
         if os.path.isdir(self.path):
             shutil.rmtree(self.path)
             self.log.info("%s: removed directory recursively")
+            self.set_changed()
         elif os.path.exists(self.path):
             os.unlink(self.path)
             self.log.info("%s: removed")
+            self.set_changed()
 
     def do_file(self):
-        self.set_file_permissions_if_exists(self.path)
+        self.set_path_permissions_if_exists(self.path)
 
     def do_touch(self):
         with self.create_file_if_missing(self.path) as fd:
-            if fd is None:
-                # The file already exists
-                self.set_file_permissions_if_exists(self.path)
+            pass
+
+        if fd is None:
+            # The file already exists
+            self.set_path_permissions_if_exists(self.path)
 
     def _mkpath(self, path: str):
         parent = os.path.dirname(path)
@@ -75,19 +79,10 @@ class File(FileMixin, Action):
 
     def do_directory(self):
         if os.path.isdir(self.path):
-            if self.mode is None:
-                cur_umask = os.umask(0)
-                os.umask(cur_umask)
-                self.mode = 0o777 & ~cur_umask
-
-            self.log.info("%s: setting mode to 0o%o", self.path, self.mode)
-            os.chmod(self.path, self.mode)
-
-            if self.owner != -1 or self.group != -1:
-                self.log.info("%s: directory ownership set to %d %d", self.path, self.owner, self.group)
-                os.chown(self.path, self.owner, self.group)
+            self.set_path_permissions_if_exists(self.path)
         else:
             self._mkpath(self.path)
+            self.set_changed()
 
     def run(self, system: transilience.system.System):
         super().run(system)

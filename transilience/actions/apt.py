@@ -59,6 +59,7 @@ class Apt(Action):
             return
 
         self.run_command(cmd)
+        self.set_changed()
 
     def run(self, system: transilience.system.System):
         if self.state == "present":

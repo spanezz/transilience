@@ -34,6 +34,7 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
             self.assertIsInstance(res[0], actions.File)
             self.assertEqual(res[0].owner, -1)
             self.assertEqual(res[0].group, -1)
+            self.assertTrue(res[0].changed)
 
     def test_exists(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -58,6 +59,7 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
             self.assertIsInstance(res[0], actions.File)
             self.assertEqual(res[0].owner, os.getuid())
             self.assertEqual(res[0].group, os.getgid())
+            self.assertTrue(res[0].changed)
 
     def test_create_default_perms(self):
         umask = read_umask()
@@ -80,6 +82,7 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
             self.assertEqual(res[0].mode, 0o666 & ~umask)
             self.assertEqual(res[0].owner, -1)
             self.assertEqual(res[0].group, -1)
+            self.assertTrue(res[0].changed)
 
 
 class TestFile(LocalTestMixin, unittest.TestCase):
@@ -99,6 +102,7 @@ class TestFile(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertFalse(res[0].changed)
 
     def test_exists(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -121,6 +125,7 @@ class TestFile(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertTrue(res[0].changed)
 
 
 class TestAbsent(LocalTestMixin, unittest.TestCase):
@@ -139,6 +144,7 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertFalse(res[0].changed)
 
     def test_file(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -158,6 +164,7 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertTrue(res[0].changed)
 
     def test_dir(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -178,6 +185,7 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertTrue(res[0].changed)
 
 
 class TestDirectory(LocalTestMixin, unittest.TestCase):
@@ -200,6 +208,7 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertTrue(res[0].changed)
 
     def test_exists(self):
         umask = read_umask()
@@ -224,6 +233,7 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+            self.assertTrue(res[0].changed)
 
     def test_exists_as_file(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -260,3 +270,5 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
+
+            self.assertTrue(res[0].changed)

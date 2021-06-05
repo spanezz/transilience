@@ -37,7 +37,7 @@ class FileMixin:
             os.fchown(fd, self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
 
-    def set_file_permissions_if_exists(self, path: str):
+    def set_path_permissions_if_exists(self, path: str):
         """
         Set the permissions of an existing file.
 

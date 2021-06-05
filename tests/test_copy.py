@@ -35,6 +35,7 @@ class TestCopy(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.Copy)
+            self.assertTrue(res[0].changed)
 
     def test_create_content(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -58,3 +59,4 @@ class TestCopy(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.Copy)
+            self.assertTrue(res[0].changed)

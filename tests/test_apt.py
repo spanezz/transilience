@@ -17,6 +17,7 @@ class TestApt(ChrootTestMixin, unittest.TestCase):
 
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], actions.Apt)
+        self.assertFalse(res[0].changed)
 
     def test_install_missing(self):
         self.assertFalse(self.system.context.call(os.path.exists, "/usr/games/cowsay"))
@@ -33,3 +34,4 @@ class TestApt(ChrootTestMixin, unittest.TestCase):
 
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], actions.Apt)
+        self.assertTrue(res[0].changed)
