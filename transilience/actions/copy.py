@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Union, Optional
 from dataclasses import dataclass
-import os
 from .action import Action
 from .common import FileMixin
 
@@ -24,7 +23,6 @@ class Copy(FileMixin, Action):
      - force
      - local_follow
      - remote_src
-     - src
      - unsafe_writes
      - validate
      - src as directory
@@ -41,22 +39,6 @@ class Copy(FileMixin, Action):
         if self.dest is None:
             raise TypeError(f"{self.__class__}.dest cannot be None")
 
-    def set_mode(self, fd: int):
-        if self.owner != -1 or self.group != -1:
-            os.fchown(fd, self.owner, self.group)
-            self.log.info("%s: file ownership set to %d %d", self.dest, self.owner, self.group)
-
-        if self.mode is not None:
-            if isinstance(self.mode, str):
-                raise NotImplementedError("string modes not yet implemented")
-        else:
-            cur_umask = os.umask(0)
-            os.umask(cur_umask)
-            self.mode = 0o666 & ~cur_umask
-
-        os.fchmod(fd, self.mode)
-        self.log.info("%s: file mode set to 0o%o", self.dest, self.mode)
-
     def write_content(self):
         if isinstance(self.content, str):
             self.content = self.content.encode()
@@ -65,8 +47,8 @@ class Copy(FileMixin, Action):
             fd.write(self.content)
 
     def write_src(self, system: transilience.system.System):
-        with system.transfer_file(self.src, self.dest, chmod=None) as fd:
-            self.set_mode(fd.fileno())
+        with self.write_file_atomically(self.dest, "wb") as fd:
+            system.transfer_file(self.src, fd)
 
     def run(self, system: transilience.system.System):
         super().run(system)

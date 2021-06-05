@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, List, Union, Optional, Iterator, Sequence, Generator, Any
+from typing import TYPE_CHECKING, Dict, List, Union, Optional, Iterator, Sequence, Generator, Any, IO
 from contextlib import contextmanager
 import tempfile
 import subprocess
@@ -39,27 +39,18 @@ else:
             self.parent_context = parent_context
             self.router = router
 
-        @contextmanager
-        def transfer_file(self, src: str, dst: str, **kw):
+        def transfer_file(self, src: str, dst: IO, **kw):
             """
-            Fetch file ``src`` from the controller and write it atomically as
-            ``dst``.
-
-            Returns the temporary file object as context variable before
-            closing and renaming it, to allow to set file metadata at the right
-            time.
+            Fetch file ``src`` from the controller and write it to the open
+            file descriptor ``dst``.
             """
-            dst = os.path.abspath(dst)
-            with atomic_writer(dst, mode="wb", **kw) as fd:
-                ok, metadata = mitogen.service.FileService.get(
-                    context=self.parent_context,
-                    path=src,
-                    out_fp=fd,
-                )
-                if not ok:
-                    raise IOError(f'Transfer of {src!r} was interrupted')
-
-                yield fd
+            ok, metadata = mitogen.service.FileService.get(
+                context=self.parent_context,
+                path=src,
+                out_fp=dst,
+            )
+            if not ok:
+                raise IOError(f'Transfer of {src!r} was interrupted')
 
     class Mitogen(System):
         """
