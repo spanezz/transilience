@@ -73,6 +73,7 @@ else:
             if meth is None:
                 raise KeyError(f"conncetion method {method!r} not available in mitogen")
 
+            kw.setdefault("python_path", "/usr/bin/python3")
             self.context = meth(remote_name=name, **kw)
 
         def share_file(self, pathname: str):

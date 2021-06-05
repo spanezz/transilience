@@ -55,7 +55,7 @@ class FileMixin:
         else:
             self.mode = stat.S_IMODE(st.st_mode)
 
-        if (self.owner != -1 and self.owner != st.uid) or (self.group != -1 and self.group != st.gid):
+        if (self.owner != -1 and self.owner != st.st_uid) or (self.group != -1 and self.group != st.st_gid):
             self.set_changed()
             os.chown(path, self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
@@ -142,7 +142,7 @@ class FileMixin:
         else:
             self.owner = -1
         if self.group is not None:
-            self.group = grp.getgenam(self.group).gr_gid
+            self.group = grp.getgrnam(self.group).gr_gid
         else:
             self.group = -1
 
