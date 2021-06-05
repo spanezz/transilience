@@ -14,9 +14,16 @@ if TYPE_CHECKING:
 @dataclass
 class Action:
     name: str
+    changed: bool = False
 
     def __post_init__(self):
         self.log = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
+
+    def set_changed(self):
+        """
+        Mark that this action has changed something
+        """
+        self.changed = True
 
     def run_command(self, cmd: List[str], check=True, **kw) -> subprocess.CompletedProcess:
         """
@@ -29,7 +36,7 @@ class Action:
         return subprocess.run(cmd, check=check, **kw)
 
     def run(self, system: transilience.system.System):
-        raise NotImplementedError(f"run not implemented for action {self.__class__.__name__}: {self.name}")
+        pass
 
     def serialize(self) -> Dict[str, Any]:
         """

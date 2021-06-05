@@ -56,8 +56,8 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
 
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.File)
-            self.assertEqual(res[0].owner, -1)
-            self.assertEqual(res[0].group, -1)
+            self.assertEqual(res[0].owner, os.getuid())
+            self.assertEqual(res[0].group, os.getgid())
 
     def test_create_default_perms(self):
         umask = read_umask()
