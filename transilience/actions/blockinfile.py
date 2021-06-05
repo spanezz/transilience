@@ -105,11 +105,12 @@ class BlockInFile(FileMixin, Action):
             last_block = (line_begin, lineno + 1)
 
         # Do the edit
+        # print("EDIT", last_block, pos, insertre, blocklines, lines)
         if last_block is None:
             if pos == "EOF":
                 lines += blocklines
             elif pos == "BOF":
-                lines = blocklines + lines
+                lines[0:0] = blocklines
             elif pos == "BEFORE":
                 lines[insertre_pos:insertre_pos] = blocklines
             elif pos == "AFTER":

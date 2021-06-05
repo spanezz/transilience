@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Optional
 import tempfile
 import unittest
 import stat
@@ -15,7 +15,7 @@ def read_umask() -> int:
 
 
 class TestBlockInFile(LocalTestMixin, unittest.TestCase):
-    def assertBlockInFileChanged(self, orig: List[str], expected: List[str], **kw):
+    def assertBlockInFile(self, orig: List[str], expected: Optional[List[str]] = None, **kw):
         kw.setdefault("block", "")
 
         with tempfile.TemporaryDirectory() as workdir:
@@ -30,10 +30,17 @@ class TestBlockInFile(LocalTestMixin, unittest.TestCase):
                 **kw
             )
             action.run(None)
-            self.assertTrue(action.changed)
 
-            with open(testfile, "rt") as fd:
-                self.assertEqual(fd.read(), "".join(expected))
+            if expected is not None:
+                self.assertTrue(action.changed)
+
+                with open(testfile, "rt") as fd:
+                    self.assertEqual(fd.read(), "".join(expected))
+            else:
+                self.assertFalse(action.changed)
+
+                with open(testfile, "rt") as fd:
+                    self.assertEqual(fd.read(), "".join(orig))
 
     def test_missing_noop(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -95,69 +102,131 @@ class TestBlockInFile(LocalTestMixin, unittest.TestCase):
                 res.append(line.strip() + "\n")
             return res
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines("line0", begin, "line1", end, "line2"),
                 lines("line0", begin, "test", "test1", end, "line2"),
                 block="test\ntest1\n")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines("line0", begin, "line1", end, "line2"),
                 lines("line0", "line2"))
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(begin, "line1", end),
                 lines(begin, "test", "test1", end),
                 block="test\ntest1\n")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(begin, "line1", end),
                 [])
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(begin, end),
                 lines(begin, "test", "test1", end),
                 block="test\ntest1\n")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(begin, end),
                 [])
 
         # An open-ended block is condered to go on until the end of the file
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(end, "line1", begin),
                 lines(end, "line1", begin, "test", "test1", end),
                 block="test\ntest1\n")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(end, "line1", begin),
                 lines(end, "line1"))
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(end, "line1", begin, "openended"),
                 lines(end, "line1", begin, "test", "test1", end),
                 block="test\ntest1\n")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(end, "line1", begin, "openended"),
                 lines(end, "line1"))
 
         # If multiple begin markers are found before an end marker, the first
         # is considered as the valid one
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(end, "line1", begin, begin, "line", end),
                 lines(end, "line1", begin, "test", "test1", end),
                 block="test\ntest1\n")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(end, "line1", begin, begin, "line", end),
                 lines(end, "line1"))
 
         # If multiple marker pairs exist, only the last one is considered
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(begin, "block1", end, "out1", begin, "block2", end, "out2"),
                 lines(begin, "block1", end, "out1", begin, "test", end, "out2"),
                 block="test")
 
-        self.assertBlockInFileChanged(
+        self.assertBlockInFile(
                 lines(begin, "block1", end, "out1", begin, "block2", end, "out2"),
                 lines(begin, "block1", end, "out1", "out2"))
+
+        # Replace with a noop
+        self.assertBlockInFile(
+                lines(begin, "block1", end, "out1", begin, "block2", end, "out2"),
+                block="block2")
+
+    def test_insert(self):
+        self.maxDiff = None
+
+        begin = "# BEGIN ANSIBLE MANAGED BLOCK"
+        end = "# END ANSIBLE MANAGED BLOCK"
+
+        def lines(*lns) -> List[str]:
+            res = []
+            for line in lns:
+                res.append(line.strip() + "\n")
+            return res
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", "line1", "line2", begin, "test", end),
+                block="test")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines(begin, "test", end, "line0", "line1", "line2"),
+                block="test", insertbefore="BOF")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines(begin, "test", end, "line0", "line1", "line2"),
+                block="test", insertbefore="line0")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", begin, "test", end, "line1", "line2"),
+                block="test", insertbefore="line1")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", "line1", begin, "test", end, "line2"),
+                block="test", insertbefore="line2")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", begin, "test", end, "line1", "line2"),
+                block="test", insertafter="line0")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", "line1", begin, "test", end, "line2"),
+                block="test", insertafter="line1")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", "line1", "line2", begin, "test", end),
+                block="test", insertafter="line2")
+
+        self.assertBlockInFile(
+                lines("line0", "line1", "line2"),
+                lines("line0", "line1", "line2", begin, "test", end),
+                block="test", insertafter="EOF")
