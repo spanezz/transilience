@@ -82,9 +82,11 @@ class Copy(FileMixin, Action):
             return None
 
     def write_content(self):
-        checksum = self._dest_shasum()
-
+        """
+        Write destination file from self.content
+        """
         # If file exists, checksum it, and if the hashes are the same, don't transfer
+        checksum = self._dest_shasum()
         if checksum is not None and checksum == self.checksum:
             self.set_path_permissions_if_exists(self.dest)
             return
@@ -98,9 +100,11 @@ class Copy(FileMixin, Action):
             fd.write(content)
 
     def write_src(self, system: transilience.system.System):
-        checksum = self._dest_shasum()
-
+        """
+        Write destination file from a streamed self.src
+        """
         # If file exists, checksum it, and if the hashes are the same, don't transfer
+        checksum = self._dest_shasum()
         if checksum is not None and checksum == self.checksum:
             self.set_path_permissions_if_exists(self.dest)
             return
