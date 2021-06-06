@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Dict, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import subprocess
 import importlib
 import logging
 import shlex
+import uuid
 import os
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 @dataclass
 class Action:
     name: str
+    uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     changed: bool = False
 
     def __post_init__(self):

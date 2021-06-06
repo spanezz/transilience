@@ -14,13 +14,10 @@ class TestSystemd(ChrootTestMixin, unittest.TestCase):
         return res[0]
 
     def assertSystemd(self, changed=True, **kwargs):
-        act = self.run_action(
-            actions.Systemd(
-                name="test action",
-                **kwargs
-            )
-        )
+        orig = actions.Systemd(name="test action", **kwargs)
+        act = self.run_action(orig)
         self.assertEqual(act.changed, changed)
+        self.assertEqual(orig.uuid, act.uuid)
         return act
 
     def setUp(self):
