@@ -42,26 +42,17 @@ class Copy(FileMixin, Action):
             if self.content is not None:
                 raise ValueError(f"{self.__class__}: src and content cannot both be set")
 
-            with open(self.src, "rb") as fd:
-                checksum = self._sha1sum(fd)
-
             if self.checksum is None:
-                self.checksum = checksum
-            elif self.checksum != checksum:
-                raise RuntimeError(f"{self.src!r} has SHA1 {checksum!r} but 'checksum' value is {self.checksum!r}")
+                with open(self.src, "rb") as fd:
+                    self.checksum = self._sha1sum(fd)
         elif self.content is not None:
-            h = hashlib.sha1()
-            if isinstance(self.content, str):
-                h.update(self.content.encode())
-            else:
-                h.update(self.content)
-            checksum = h.hexdigest()
-
             if self.checksum is None:
-                self.checksum = checksum
-            elif self.checksum != checksum:
-                raise RuntimeError(f"{self.__class__}.content has SHA1 {checksum!r}"
-                                   f"but 'checksum' value is {self.checksum!r}")
+                h = hashlib.sha1()
+                if isinstance(self.content, str):
+                    h.update(self.content.encode())
+                else:
+                    h.update(self.content)
+                self.checksum = h.hexdigest()
         else:
             raise ValueError(f"{self.__class__}: one of src and content needs to be set")
 
