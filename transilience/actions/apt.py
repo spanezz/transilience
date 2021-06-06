@@ -38,7 +38,7 @@ class Apt(Action):
     state: str = "present"
     install_recommends: Optional[bool] = None
 
-    def all_installed(self, pkgs: List[str]) -> True:
+    def all_installed(self, pkgs: List[str]) -> bool:
         """
         Returns True if all the given packages are installed
         """
