@@ -1,12 +1,13 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, List, Union, Optional, Iterator, Sequence, Generator, Any, IO
+from typing import Dict, List, Union, Optional, Iterator, Sequence, Generator, Any, IO
 from contextlib import contextmanager
-import tempfile
+import collections
 import subprocess
-import shutil
-import os
-import shlex
+import tempfile
 import logging
+import shutil
+import shlex
+import os
 try:
     import mitogen
     import mitogen.core
@@ -34,6 +35,7 @@ if mitogen is None:
         def __init__(self, *args, **kw):
             raise NotImplementedError("the mitogen python module is not installed on this system")
 else:
+    # FIXME: can this be somewhat added to the remote's service pool, and persist across actions?
     class LocalMitogen(System):
         def __init__(self, parent_context: mitogen.core.Context, router: mitogen.core.Router):
             self.parent_context = parent_context
@@ -76,6 +78,8 @@ else:
             kw.setdefault("python_path", "/usr/bin/python3")
             self.context = meth(remote_name=name, **kw)
 
+            self.pending_actions = collections.deque()
+
         def share_file(self, pathname: str):
             """
             Register a pathname as exportable to children
@@ -88,22 +92,34 @@ else:
             """
             self.file_service.register_prefix(pathname)
 
-        def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action]:
+        def enqueue_chain(self, action_list: Sequence[actions.Action]):
             """
-            Run a sequence of provisioning actions in the chroot
+            Enqueue a chain of actions in the pipeline for this system
             """
             # Send out all calls in a pipeline
-            results = []
             with mitogen.parent.CallChain(self.context, pipelined=True) as chain:
                 for action in action_list:
                     if not isinstance(action, actions.Action):
                         raise ValueError(f"action {action!r} is not an instance of Action")
-                    results.append(
+                    self.pending_actions.append(
                         chain.call_async(self.remote_run_actions, self.router.myself(), action.serialize())
                     )
 
-            for res in results:
-                yield Action.deserialize(res.get().unpickle())
+        def receive_actions(self) -> Generator[actions.Action, None, None]:
+            """
+            Receive results of the actions that have been sent so far.
+
+            It is ok to enqueue new actions while this method runs
+            """
+            while self.pending_actions:
+                yield Action.deserialize(self.pending_actions.popleft().get().unpickle())
+
+        def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action, None, None]:
+            """
+            Run a sequence of provisioning actions in the chroot
+            """
+            self.enqueue_chain(action_list)
+            yield from self.receive_actions()
 
         @classmethod
         @mitogen.core.takes_router
