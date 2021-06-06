@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List
 from dataclasses import dataclass, field
-import os
+import subprocess
 from .action import Action
 
 if TYPE_CHECKING:
@@ -38,25 +38,34 @@ class Apt(Action):
     state: str = "present"
     install_recommends: Optional[bool] = None
 
+    def all_installed(self, pkgs: List[str]) -> True:
+        """
+        Returns True if all the given packages are installed
+        """
+        cmd = [
+            "dpkg-query", "-f", "${Status}\n", "-W"
+        ] + pkgs
+        res = subprocess.run(cmd, text=True, capture_output=True)
+        if res.returncode != 0:
+            return False
+        for line in res.stdout.splitlines():
+            if line.strip() != "install ok installed":
+                return False
+        return True
+
     def do_present(self):
         """
         Install the given package(s), if they are not installed yet
         """
+        if self.all_installed(self.pkg):
+            return
+
         cmd = ["apt-get", "-y", "install"]
         if self.install_recommends is True:
             cmd.append("--install-recommends")
         elif self.install_recommends is False:
             cmd.append("--no-install-recommends")
-
-        has_packages = False
-        for pkg in self.pkg:
-            if os.path.exists(os.path.join("/", "var", "lib", "dpkg", "info", pkg + ".list")):
-                continue
-            cmd.append(pkg)
-            has_packages = True
-
-        if not has_packages:
-            return
+        cmd += self.pkg
 
         self.run_command(cmd)
         self.set_changed()
