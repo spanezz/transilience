@@ -6,4 +6,4 @@ from .apt import Apt
 from .command import Command
 from .systemd import Systemd
 
-__all__ = ["Action", "File", "Copy", "Apt", "Command", "Systemd"]
+__all__ = ["Action", "File", "Copy", "BlockInFile", "Apt", "Command", "Systemd"]
