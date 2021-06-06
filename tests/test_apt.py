@@ -20,17 +20,17 @@ class TestApt(ChrootTestMixin, unittest.TestCase):
         self.assertFalse(res[0].changed)
 
     def test_install_missing(self):
-        self.assertFalse(self.system.context.call(os.path.exists, "/usr/games/cowsay"))
+        self.assertFalse(self.system.context.call(os.path.exists, "/usr/bin/hello"))
 
         res = list(self.system.run_actions([
             actions.Apt(
                 name="Install cowsay",
-                pkg=["cowsay"],
+                pkg=["hello"],
                 state="present",
             )
         ]))
 
-        self.assertTrue(self.system.context.call(os.path.exists, "/usr/games/cowsay"))
+        self.assertTrue(self.system.context.call(os.path.exists, "/usr/bin/hello"))
 
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], actions.Apt)
