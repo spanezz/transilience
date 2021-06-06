@@ -33,8 +33,9 @@ class TestSystemd(ChrootTestMixin, unittest.TestCase):
                 [Unit]
                 Description=Test Unit {self.unit_name}
                 [Service]
-                Type=oneshot
-                ExecStart=/bin/true
+                Type=simple
+                ExecStart=/usr/bin/sleep 6h
+                ExecReload=/bin/true
                 [Install]
                 WantedBy=multi-user.target
                 """)
@@ -72,7 +73,7 @@ class TestSystemd(ChrootTestMixin, unittest.TestCase):
 
     def test_reload(self):
         self.assertSystemd(unit=self.unit_name, state="started", changed=True)
-        self.assertSystemd(unit=self.unit_name, state="restarted", changed=False)
-        self.assertSystemd(unit=self.unit_name, state="restarted", changed=False)
+        self.assertSystemd(unit=self.unit_name, state="restarted", changed=True)
+        self.assertSystemd(unit=self.unit_name, state="restarted", changed=True)
         self.assertSystemd(unit=self.unit_name, state="reloaded", changed=True)
         self.assertSystemd(unit=self.unit_name, state="reloaded", changed=True)

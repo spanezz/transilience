@@ -102,7 +102,7 @@ class Systemd(Action):
             if self.state is not None:
                 action = None
                 cur_state = unit_info.get("ActiveState")
-                self.log.info("ZAZA %r", cur_state)
+                # self.log.info("ActiveState pre: %r", cur_state)
                 if cur_state is not None:
                     if self.state == "started":
                         if cur_state not in ("active", "activating"):
