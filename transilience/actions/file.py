@@ -24,12 +24,12 @@ class File(FileMixin, Action):
      - follow
      - force
      - modification_time_format
-     - recurse
      - src
      - unsafe_writes
     """
     path: str = None
     state: str = "file"
+    recurse: bool = False
     # follow: bool = True
     # src: Optional[str] = None
 
@@ -37,6 +37,8 @@ class File(FileMixin, Action):
         super().__post_init__()
         if self.path is None:
             raise TypeError(f"{self.__class__}.path cannot be None")
+        if self.recurse is True and self.state != "directory":
+            raise ValueError(f"{self.__class__}.recurse only makes sense when state=directory")
 
     def do_absent(self):
         if os.path.isdir(self.path):
@@ -78,6 +80,12 @@ class File(FileMixin, Action):
 
     def do_directory(self):
         if os.path.isdir(self.path):
+            if self.recurse:
+                # TODO: use dirfd
+                for root, dirs, files in os.walk(self.path):
+                    for fn in dirs + files:
+                        self.set_path_permissions_if_exists(os.path.join(root, fn), record=False)
+
             self.set_path_permissions_if_exists(self.path)
         else:
             self._mkpath(self.path)

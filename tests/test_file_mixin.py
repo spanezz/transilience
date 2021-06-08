@@ -4,6 +4,11 @@ import contextlib
 import unittest
 from unittest import mock
 from transilience.actions.common import FileMixin
+from transilience.actions.action import Action
+
+
+class ComputedPermsAction(FileMixin, Action):
+    pass
 
 
 class TestComputeFsPerms(unittest.TestCase):
@@ -23,7 +28,8 @@ class TestComputeFsPerms(unittest.TestCase):
             is_dir: bool = False,
             umask: Optional[int] = None):
         with self.umask(umask):
-            act = FileMixin(mode=mode)
+            act = ComputedPermsAction(mode=mode)
+            act.run(None)
             computed = act._compute_fs_perms(orig, is_dir=is_dir)
             if computed != expected:
                 if computed is None:

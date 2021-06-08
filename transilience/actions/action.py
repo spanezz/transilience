@@ -32,6 +32,7 @@ class Result:
 class Action:
     name: str
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    notify: List[str] = field(default_factory=list)
     result: Result = field(default_factory=Result)
 
     def __post_init__(self):

@@ -211,6 +211,29 @@ class DirectoryTests(FileTestMixin):
             st = os.stat(os.path.dirname(testdir))
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
 
+    def test_recurse(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            os.makedirs(os.path.join(workdir, "testdir1", "testdir2"))
+            os.chmod(os.path.join(workdir, "testdir1"), 0o700)
+            os.chmod(os.path.join(workdir, "testdir1", "testdir2"), 0o777)
+            with open(os.path.join(workdir, "file1"), "wt") as fd:
+                os.fchmod(fd.fileno(), 0o666)
+            with open(os.path.join(workdir, "testdir1", "testdir2", "file2"), "wt") as fd:
+                os.fchmod(fd.fileno(), 0o777)
+
+            self.run_file_action(path=workdir, state="directory", mode="u=rwX,g=rX,o=rX", recurse=True)
+
+            st = os.stat(workdir)
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            st = os.stat(os.path.join(workdir, "testdir1"))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            st = os.stat(os.path.join(workdir, "testdir1", "testdir2"))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            st = os.stat(os.path.join(workdir, "file1"))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o644)
+            st = os.stat(os.path.join(workdir, "testdir1", "testdir2", "file2"))
+            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+
 
 class TestDirectoryLocal(DirectoryTests, LocalTestMixin, unittest.TestCase):
     pass

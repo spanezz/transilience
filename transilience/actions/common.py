@@ -26,6 +26,11 @@ class FileMixin:
     # TODO: attributes
     # TODO: follow=dict(type='bool', default=False)
 
+    def __post_init__(self):
+        super().__post_init__()
+        # precompiled mode
+        self._mode = None
+
     def _compute_fs_perms(self, orig: Optional[int], is_dir: bool = False) -> Optional[int]:
         """
         Compute permissions that the referred file should have in the file system.
@@ -59,13 +64,12 @@ class FileMixin:
             cur_umask = os.umask(0)
             os.umask(cur_umask)
 
-            changes = ModeChange.compile(self.mode)
             if orig is None:
                 new_mode, affected_bits = ModeChange.adjust(
                     oldmode=0,
                     is_dir=is_dir,
                     umask_value=cur_umask,
-                    changes=changes)
+                    changes=self._mode)
 
                 return new_mode
             else:
@@ -73,7 +77,7 @@ class FileMixin:
                     oldmode=orig,
                     is_dir=is_dir,
                     umask_value=cur_umask,
-                    changes=changes)
+                    changes=self._mode)
 
                 if orig == new_mode:
                     return None
@@ -91,7 +95,7 @@ class FileMixin:
             os.fchown(fd, self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
 
-    def set_path_permissions_if_exists(self, path: str):
+    def set_path_permissions_if_exists(self, path: str, record=True):
         """
         Set the permissions of an existing file.
 
@@ -105,19 +109,22 @@ class FileMixin:
         mode = self._compute_fs_perms(orig=stat.S_IMODE(st.st_mode), is_dir=False)
         if mode is not None:
             os.chmod(path, mode)
-            self.mode = mode
+            if record:
+                self.mode = mode
             self.set_changed()
-            self.log.info("%s: file mode set to 0o%o", path, self.mode)
+            self.log.info("%s: file mode set to 0o%o", path, mode)
         else:
-            self.mode = stat.S_IMODE(st.st_mode)
+            if record:
+                self.mode = stat.S_IMODE(st.st_mode)
 
         if (self.owner != -1 and self.owner != st.st_uid) or (self.group != -1 and self.group != st.st_gid):
             self.set_changed()
             os.chown(path, self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
         else:
-            self.owner = st.st_uid
-            self.group = st.st_gid
+            if record:
+                self.owner = st.st_uid
+                self.group = st.st_gid
 
     @contextlib.contextmanager
     def create_file_if_missing(self, path: str, mode="w+b", **kwargs):
@@ -202,4 +209,5 @@ class FileMixin:
         else:
             self.group = -1
 
-        # TODO: parse mode if it is a string
+        if isinstance(self.mode, str):
+            self._mode = ModeChange.compile(self.mode)
