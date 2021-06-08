@@ -68,3 +68,24 @@ class TestComputeFsPerms(unittest.TestCase):
         self.assertComputedPerms(mode="u=rwx,g=rxs,o=", orig=0o222, expected=0o2750)
         self.assertComputedPerms(mode="u=rwx,g=rxs,o=", orig=None, is_dir=True, expected=0o2750)
         self.assertComputedPerms(mode="u=rwx,g=rxs,o=", orig=0o222, is_dir=True, expected=0o2750)
+
+    def test_equal_x(self):
+        # Ported from coreutils's test suite
+        self.assertComputedPerms(mode="a=r,=x", orig=0o644, umask=0o005, expected=0o110)
+        self.assertComputedPerms(mode="a=r,=xX", orig=0o644, umask=0o005, expected=0o110)
+        self.assertComputedPerms(mode="a=r,=Xx", orig=0o644, umask=0o005, expected=0o110)
+        self.assertComputedPerms(mode="a=r,=x,=X", orig=0o644, umask=0o005, expected=0o110)
+        self.assertComputedPerms(mode="a=r,=X,=x", orig=0o644, umask=0o005, expected=0o110)
+
+    def test_equals(self):
+        # Ported from coreutils's test suite
+        expected = {
+            "u": 0o700,
+            "g": 0o070,
+            "o": 0o007,
+        }
+        for src in "ugo":
+            for dest in "ugo":
+                if src == dest:
+                    continue
+                self.assertComputedPerms(mode=f"a=,{src}=rwx,{dest}={src},{src}=", orig=0o644, expected=expected[dest])
