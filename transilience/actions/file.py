@@ -81,10 +81,9 @@ class File(FileMixin, Action):
     def do_directory(self):
         if os.path.isdir(self.path):
             if self.recurse:
-                # TODO: use dirfd
-                for root, dirs, files in os.walk(self.path):
+                for root, dirs, files, dir_fd in os.fwalk(self.path):
                     for fn in dirs + files:
-                        self.set_path_permissions_if_exists(os.path.join(root, fn), record=False)
+                        self.set_path_permissions_if_exists(fn, dir_fd=dir_fd, record=False)
 
             self.set_path_permissions_if_exists(self.path)
         else:

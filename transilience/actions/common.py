@@ -30,6 +30,7 @@ class FileMixin:
         super().__post_init__()
         # precompiled mode
         self._mode = None
+        self._cur_umask = None
 
     def _compute_fs_perms(self, orig: Optional[int], is_dir: bool = False) -> Optional[int]:
         """
@@ -42,12 +43,10 @@ class FileMixin:
             # Mode not specified
             if orig is None:
                 # For newly created file or dirs, use the current umask
-                cur_umask = os.umask(0)
-                os.umask(cur_umask)
                 if is_dir:
-                    return 0o777 & ~cur_umask
+                    return 0o777 & ~self._cur_umask
                 else:
-                    return 0o666 & ~cur_umask
+                    return 0o666 & ~self._cur_umask
             else:
                 # For existing file or dirs, do nothing
                 return None
@@ -61,14 +60,11 @@ class FileMixin:
             else:
                 return None
         else:
-            cur_umask = os.umask(0)
-            os.umask(cur_umask)
-
             if orig is None:
                 new_mode, affected_bits = ModeChange.adjust(
                     oldmode=0,
                     is_dir=is_dir,
-                    umask_value=cur_umask,
+                    umask_value=self._cur_umask,
                     changes=self._mode)
 
                 return new_mode
@@ -76,7 +72,7 @@ class FileMixin:
                 new_mode, affected_bits = ModeChange.adjust(
                     oldmode=orig,
                     is_dir=is_dir,
-                    umask_value=cur_umask,
+                    umask_value=self._cur_umask,
                     changes=self._mode)
 
                 if orig == new_mode:
@@ -95,20 +91,20 @@ class FileMixin:
             os.fchown(fd, self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
 
-    def set_path_permissions_if_exists(self, path: str, record=True):
+    def set_path_permissions_if_exists(self, path: str, record=True, dir_fd=None):
         """
         Set the permissions of an existing file.
 
         Calls self.set_changed() if the filesystem gets changed
         """
         try:
-            st = os.stat(path)
+            st = os.stat(path, dir_fd=dir_fd)
         except FileNotFoundError:
             return
 
         mode = self._compute_fs_perms(orig=stat.S_IMODE(st.st_mode), is_dir=False)
         if mode is not None:
-            os.chmod(path, mode)
+            os.chmod(path, mode, dir_fd=dir_fd)
             if record:
                 self.mode = mode
             self.set_changed()
@@ -119,7 +115,7 @@ class FileMixin:
 
         if (self.owner != -1 and self.owner != st.st_uid) or (self.group != -1 and self.group != st.st_gid):
             self.set_changed()
-            os.chown(path, self.owner, self.group)
+            os.chown(path, self.owner, self.group, dir_fd=dir_fd)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
         else:
             if record:
@@ -166,12 +162,6 @@ class FileMixin:
 
         Calls self.set_changed() if the filesystem gets changed
         """
-
-        # if use_umask:
-        #     cur_umask = os.umask(0)
-        #     os.umask(cur_umask)
-        #     chmod &= ~cur_umask
-
         dirname = os.path.dirname(path)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
@@ -211,3 +201,6 @@ class FileMixin:
 
         if isinstance(self.mode, str):
             self._mode = ModeChange.compile(self.mode)
+
+        self._cur_umask = os.umask(0)
+        os.umask(self._cur_umask)
