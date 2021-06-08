@@ -241,3 +241,24 @@ class TestDirectoryLocal(DirectoryTests, LocalTestMixin, unittest.TestCase):
 
 class TestDirectoryMitogen(DirectoryTests, LocalMitogenTestMixin, unittest.TestCase):
     pass
+
+
+class LinkTests(FileTestMixin):
+    def test_create(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            self.run_file_action(path=testfile, state="link", src=workdir)
+
+            st = os.lstat(testfile)
+            self.assertTrue(stat.S_ISLNK(st.st_mode))
+            self.assertEqual(os.readlink(testfile), workdir)
+
+            self.run_file_action(path=testfile, state="link", src=workdir, changed=False)
+
+
+class TestLinkLocal(LinkTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestLinkMitogen(LinkTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass

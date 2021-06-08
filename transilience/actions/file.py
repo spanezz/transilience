@@ -2,12 +2,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from dataclasses import dataclass
 import shutil
+import stat
 import os
 from .action import Action
 from .common import FileMixin
 
 if TYPE_CHECKING:
     import transilience.system
+
+# TODO: review ansible modules/file.py to cross check what bits we miss
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
@@ -24,14 +27,13 @@ class File(FileMixin, Action):
      - follow
      - force
      - modification_time_format
-     - src
      - unsafe_writes
     """
     path: str = None
     state: str = "file"
     recurse: bool = False
     # follow: bool = True
-    # src: Optional[str] = None
+    src: Optional[str] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -91,6 +93,31 @@ class File(FileMixin, Action):
         else:
             self._mkpath(self.path)
             self.set_changed()
+
+    def do_link(self):
+        try:
+            st = os.lstat(self.path)
+        except FileNotFoundError:
+            st = None
+
+        if st is not None and stat.S_ISDIR(st.st_mode):
+            relpath = self.path
+        else:
+            relpath = os.path.dirname(self.path)
+
+        src = os.path.join(relpath, self.src)
+        # TODO: bail out unless force=True
+        # TODO: implement conversion of existing things (except nonempty dirs) to links
+
+        if st is not None and stat.S_ISLNK(st.st_mode):
+            orig_src = os.readlink(self.path)
+            if orig_src == src:
+                return
+
+        os.symlink(src, self.path)
+        self.set_changed()
+
+        # TODO: set perms of src (ansible would, at least?)
 
     def run(self, system: transilience.system.System):
         super().run(system)
