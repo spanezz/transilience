@@ -25,13 +25,38 @@ class FileMixin:
     # TODO: attributes
     # TODO: follow=dict(type='bool', default=False)
 
-    def _set_fd_perms(self, path: str, fd: int):
+    def _compute_fs_perms(self, orig: Optional[int], is_dir=False) -> Optional[int]:
         if self.mode is None:
-            cur_umask = os.umask(0)
-            os.umask(cur_umask)
-            self.mode = 0o666 & ~cur_umask
-        os.fchmod(fd, self.mode)
-        self.log.info("%s: file mode set to 0o%o", path, self.mode)
+            # Mode not specified
+            if orig is None:
+                # For newly created file or dirs, use the current umask
+                cur_umask = os.umask(0)
+                os.umask(cur_umask)
+                if is_dir:
+                    return 0o777 & ~cur_umask
+                else:
+                    return 0o666 & ~cur_umask
+            else:
+                # For existing file or dirs, do nothing
+                return None
+        elif isinstance(self.mode, int):
+            if orig is None:
+                # New files or dirs get self.mode
+                return self.mode
+            elif orig != self.mode:
+                # Existing files get self.mode only if it changes their mode
+                return self.mode
+            else:
+                return None
+        else:
+            raise NotImplementedError("String modes not yet implemented")
+
+    def _set_fd_perms(self, path: str, fd: int):
+        mode = self._compute_fs_perms(orig=None, is_dir=False)
+        if mode is not None:
+            os.fchmod(fd, mode)
+            self.mode = mode
+            self.log.info("%s: file mode set to 0o%o", path, mode)
 
         if self.owner != -1 or self.group != -1:
             os.fchown(fd, self.owner, self.group)
@@ -48,8 +73,10 @@ class FileMixin:
         except FileNotFoundError:
             return
 
-        if self.mode is not None and self.mode != stat.S_IMODE(st.st_mode):
-            os.chmod(path, self.mode)
+        mode = self._compute_fs_perms(orig=stat.S_IMODE(st.st_mode), is_dir=False)
+        if mode is not None:
+            os.chmod(path, mode)
+            self.mode = mode
             self.set_changed()
             self.log.info("%s: file mode set to 0o%o", path, self.mode)
         else:
