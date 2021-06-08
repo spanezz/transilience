@@ -7,6 +7,7 @@ import stat
 import pwd
 import grp
 import os
+from transilience.utils.modechange import ModeChange
 
 if TYPE_CHECKING:
     import transilience.system
@@ -25,7 +26,13 @@ class FileMixin:
     # TODO: attributes
     # TODO: follow=dict(type='bool', default=False)
 
-    def _compute_fs_perms(self, orig: Optional[int], is_dir=False) -> Optional[int]:
+    def _compute_fs_perms(self, orig: Optional[int], is_dir: bool = False) -> Optional[int]:
+        """
+        Compute permissions that the referred file should have in the file system.
+
+        * orig: original permissions, or None if the file has just been created
+        * is_dir: True if working with a directory, False if working with a file
+        """
         if self.mode is None:
             # Mode not specified
             if orig is None:
@@ -49,7 +56,29 @@ class FileMixin:
             else:
                 return None
         else:
-            raise NotImplementedError("String modes not yet implemented")
+            cur_umask = os.umask(0)
+            os.umask(cur_umask)
+
+            changes = ModeChange.compile(self.mode)
+            if orig is None:
+                new_mode, affected_bits = ModeChange.adjust(
+                    oldmode=0,
+                    is_dir=is_dir,
+                    umask_value=cur_umask,
+                    changes=changes)
+
+                return new_mode
+            else:
+                new_mode, affected_bits = ModeChange.adjust(
+                    oldmode=orig,
+                    is_dir=is_dir,
+                    umask_value=cur_umask,
+                    changes=changes)
+
+                if orig == new_mode:
+                    return None
+                else:
+                    return new_mode
 
     def _set_fd_perms(self, path: str, fd: int):
         mode = self._compute_fs_perms(orig=None, is_dir=False)

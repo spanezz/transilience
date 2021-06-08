@@ -23,7 +23,6 @@ class File(FileMixin, Action):
      - modification_time
      - follow
      - force
-     - mode as string (integer works)
      - modification_time_format
      - recurse
      - src
