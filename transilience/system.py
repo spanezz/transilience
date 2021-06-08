@@ -141,7 +141,8 @@ else:
                 router: mitogen.core.Router = None) -> Dict[str, Any]:
             system = LocalMitogen(parent_context=context, router=router)
             action = Action.deserialize(action)
-            action.run(system)
+            with action.result.collect():
+                action.run(system)
             return action.serialize()
 
 
@@ -160,7 +161,8 @@ class LocalCallChain:
                 if self.failed:
                     raise RuntimeError(f"{action.name!r} failed because a previous action failed in the same chain")
                 try:
-                    action.run(*args, **kw)
+                    with action.result.collect():
+                        action.run(*args, **kw)
                     return action
                 except Exception:
                     self.failed = True

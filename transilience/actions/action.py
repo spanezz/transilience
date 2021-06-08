@@ -1,10 +1,12 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Dict, Any, Optional
 from dataclasses import dataclass, asdict, field
+import contextlib
 import subprocess
 import importlib
 import logging
 import shlex
+import time
 import uuid
 import os
 
@@ -16,6 +18,14 @@ if TYPE_CHECKING:
 class Result:
     changed: bool = False
     elapsed: Optional[int] = None
+
+    @contextlib.contextmanager
+    def collect(self):
+        start_ns = time.perf_counter_ns()
+        try:
+            yield
+        finally:
+            self.elapsed = time.perf_counter_ns() - start_ns
 
 
 @dataclass
