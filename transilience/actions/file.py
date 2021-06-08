@@ -82,7 +82,9 @@ class File(FileMixin, Action):
         if os.path.isdir(self.path):
             if self.recurse:
                 for root, dirs, files, dir_fd in os.fwalk(self.path):
-                    for fn in dirs + files:
+                    for fn in dirs:
+                        self.set_path_permissions_if_exists(fn, dir_fd=dir_fd, record=False)
+                    for fn in files:
                         self.set_path_permissions_if_exists(fn, dir_fd=dir_fd, record=False)
 
             self.set_path_permissions_if_exists(self.path)
