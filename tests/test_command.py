@@ -10,7 +10,7 @@ class TestCommand(unittest.TestCase):
     def assertRun(self, changed=True, **kwargs):
         act = actions.Command(name="test command", **kwargs)
         act.run(None)
-        self.assertEqual(act.changed, changed)
+        self.assertEqual(act.result.changed, changed)
         return act
 
     def test_basic(self):

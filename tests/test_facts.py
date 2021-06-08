@@ -10,7 +10,7 @@ class TestFacts(LocalTestMixin, unittest.TestCase):
         res = list(self.system.run_actions([facts_cls(name="gather_facts")]))
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], facts_cls)
-        self.assertFalse(res[0].changed)
+        self.assertFalse(res[0].result.changed)
         return res[0].facts
 
     def test_platform(self):

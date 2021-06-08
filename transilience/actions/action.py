@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Dict, Any
+from typing import TYPE_CHECKING, List, Dict, Any, Optional
 from dataclasses import dataclass, asdict, field
 import subprocess
 import importlib
@@ -13,10 +13,16 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class Result:
+    changed: bool = False
+    elapsed: Optional[int] = None
+
+
+@dataclass
 class Action:
     name: str
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
-    changed: bool = False
+    result: Result = field(default_factory=Result)
 
     def __post_init__(self):
         self.log = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
@@ -25,7 +31,7 @@ class Action:
         """
         Mark that this action has changed something
         """
-        self.changed = True
+        self.result.changed = True
 
     def run_command(self, cmd: List[str], check=True, **kw) -> subprocess.CompletedProcess:
         """
@@ -63,6 +69,7 @@ class Action:
             raise ValueError(f"action {action_name!r} not found in transilience.actions")
         if not issubclass(action_cls, Action):
             raise ValueError(f"action {action_name!r} is not an subclass of transilience.actions.Action")
+        serialized["result"] = Result(**serialized["result"])
         return action_cls(**serialized)
 
 # https://docs.ansible.com/ansible/latest/collections/index_module.html

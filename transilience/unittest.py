@@ -147,6 +147,19 @@ def cleanup():
         chroot.stop()
 
 
+class ActionTestMixin:
+    """
+    Test case mixin with common shortcuts for running actions
+    """
+    def run_action(self, action, changed=True):
+        res = list(self.system.run_actions([action]))
+        self.assertEqual(len(res), 1)
+        self.assertIsInstance(res[0], action.__class__)
+        self.assertEqual(res[0].result.changed, changed)
+        self.assertEqual(res[0].uuid, action.uuid)
+        return res[0]
+
+
 class LocalTestMixin:
     """
     Mixin to run tests over a 'local' connection to the same system where tests

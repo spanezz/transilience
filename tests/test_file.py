@@ -3,7 +3,7 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
+from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
 from transilience import actions
 
 
@@ -13,27 +13,23 @@ def read_umask() -> int:
     return umask
 
 
-class TouchTests:
+class TouchTests(ActionTestMixin):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            res = list(self.system.run_actions([
+            act = self.run_action(
                 actions.File(
                     name="Create test file",
                     path=testfile,
                     state="touch",
                     mode=0o640,
-                ),
-            ]))
+                ))
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
 
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertEqual(res[0].owner, -1)
-            self.assertEqual(res[0].group, -1)
-            self.assertTrue(res[0].changed)
+            self.assertEqual(act.owner, -1)
+            self.assertEqual(act.group, -1)
 
     def test_exists(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -42,46 +38,38 @@ class TouchTests:
                 pass
             os.chmod(testfile, 0o666)
 
-            res = list(self.system.run_actions([
+            act = self.run_action(
                 actions.File(
                     name="Create test file",
                     path=testfile,
                     state="touch",
                     mode=0o640,
-                ),
-            ]))
+                ))
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
 
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertEqual(res[0].owner, os.getuid())
-            self.assertEqual(res[0].group, os.getgid())
-            self.assertTrue(res[0].changed)
+            self.assertEqual(act.owner, os.getuid())
+            self.assertEqual(act.group, os.getgid())
 
     def test_create_default_perms(self):
         umask = read_umask()
 
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            res = list(self.system.run_actions([
+            act = self.run_action(
                 actions.File(
                     name="Create test file",
                     path=testfile,
                     state="touch",
-                ),
-            ]))
+                ))
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o666 & ~umask)
 
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertEqual(res[0].mode, 0o666 & ~umask)
-            self.assertEqual(res[0].owner, -1)
-            self.assertEqual(res[0].group, -1)
-            self.assertTrue(res[0].changed)
+            self.assertEqual(act.mode, 0o666 & ~umask)
+            self.assertEqual(act.owner, -1)
+            self.assertEqual(act.group, -1)
 
 
 class TestTouchLocal(TouchTests, LocalTestMixin, unittest.TestCase):
@@ -92,24 +80,19 @@ class TestTouchMitogen(TouchTests, LocalMitogenTestMixin, unittest.TestCase):
     pass
 
 
-class FileTests:
+class FileTests(ActionTestMixin):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Create test file",
                     path=testfile,
                     state="file",
                     mode=0o640,
-                ),
-            ]))
+                ), changed=False)
 
             self.assertFalse(os.path.exists(testfile))
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertFalse(res[0].changed)
 
     def test_exists(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -118,21 +101,16 @@ class FileTests:
                 pass
             os.chmod(testfile, 0o666)
 
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Create test file",
                     path=testfile,
                     state="file",
                     mode=0o640,
-                ),
-            ]))
+                ))
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertTrue(res[0].changed)
 
 
 class TestFileLocal(FileTests, LocalTestMixin, unittest.TestCase):
@@ -143,23 +121,18 @@ class TestFileMitogen(FileTests, LocalMitogenTestMixin, unittest.TestCase):
     pass
 
 
-class AbsentTests:
+class AbsentTests(ActionTestMixin):
     def test_missing(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Remove missing file",
                     path=testfile,
                     state="absent",
-                ),
-            ]))
+                ), changed=False)
 
             self.assertFalse(os.path.exists(testfile))
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertFalse(res[0].changed)
 
     def test_file(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -167,19 +140,14 @@ class AbsentTests:
             with open(testfile, "wb"):
                 pass
 
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Remove test file",
                     path=testfile,
                     state="absent",
-                ),
-            ]))
+                ))
 
             self.assertFalse(os.path.exists(testfile))
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertTrue(res[0].changed)
 
     def test_dir(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -188,19 +156,14 @@ class AbsentTests:
             with open(os.path.join(testdir, "testfile"), "wb"):
                 pass
 
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Remove test dir",
                     path=testdir,
                     state="absent",
-                ),
-            ]))
+                ))
 
             self.assertFalse(os.path.exists(testdir))
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertTrue(res[0].changed)
 
 
 class AbsentTestsLocal(AbsentTests, LocalTestMixin, unittest.TestCase):
@@ -211,27 +174,22 @@ class AbsentTestsMitogen(AbsentTests, LocalMitogenTestMixin, unittest.TestCase):
     pass
 
 
-class DirectoryTests:
+class DirectoryTests(ActionTestMixin):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Create test dir",
                     path=testdir,
                     state="directory",
                     mode=0o750,
-                ),
-            ]))
+                ))
 
             st = os.stat(testdir)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
             st = os.stat(os.path.dirname(testdir))
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertTrue(res[0].changed)
 
     def test_exists(self):
         umask = read_umask()
@@ -240,23 +198,18 @@ class DirectoryTests:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
             os.makedirs(testdir, mode=0x700)
 
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Create test dur",
                     path=testdir,
                     state="directory",
                     mode=0o750,
-                ),
-            ]))
+                ))
 
             st = os.stat(testdir)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
             st = os.stat(os.path.dirname(testdir))
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-            self.assertTrue(res[0].changed)
 
     def test_exists_as_file(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -265,36 +218,29 @@ class DirectoryTests:
                 pass
 
             with self.assertRaises(Exception):
-                list(self.system.run_actions([
+                self.run_action(
                     actions.File(
                         name="Create test dir",
                         path=testdir,
                         state="directory",
-                    ),
-                ]))
+                    ))
 
     def test_create_default_perms(self):
         umask = read_umask()
 
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.File(
                     name="Create test dir",
                     path=testdir,
                     state="directory",
-                ),
-            ]))
+                ))
 
             st = os.stat(testdir)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
             st = os.stat(os.path.dirname(testdir))
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.File)
-
-            self.assertTrue(res[0].changed)
 
 
 class TestDirectoryLocal(DirectoryTests, LocalTestMixin, unittest.TestCase):

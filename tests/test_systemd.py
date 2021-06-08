@@ -2,28 +2,19 @@ from __future__ import annotations
 import unittest
 import inspect
 import uuid
-from transilience.unittest import ChrootTestMixin
+from transilience.unittest import ActionTestMixin, ChrootTestMixin
 from transilience import actions
 
 
-class TestSystemd(ChrootTestMixin, unittest.TestCase):
-    def run_action(self, action):
-        res = list(self.system.run_actions([action]))
-        self.assertEqual(len(res), 1)
-        self.assertIsInstance(res[0], action.__class__)
-        return res[0]
-
+class TestSystemd(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
     def assertSystemd(self, changed=True, **kwargs):
         orig = actions.Systemd(name="test action", **kwargs)
-        act = self.run_action(orig)
-        self.assertEqual(act.changed, changed)
-        self.assertEqual(orig.uuid, act.uuid)
-        return act
+        return self.run_action(orig, changed=changed)
 
     def setUp(self):
         self.unit_name = str(uuid.uuid4())
 
-        act = self.run_action(actions.Copy(
+        self.run_action(actions.Copy(
                 name="setup unit",
                 dest=f"/usr/lib/systemd/system/{self.unit_name}.service",
                 content=inspect.cleandoc(f"""
@@ -38,9 +29,8 @@ class TestSystemd(ChrootTestMixin, unittest.TestCase):
                 """)
             )
         )
-        self.assertTrue(act.changed)
 
-        self.run_action(actions.Systemd(name="daemon_reload", daemon_reload=True))
+        self.run_action(actions.Systemd(name="daemon_reload", daemon_reload=True), changed=False)
 
     def test_daemon_reload(self):
         self.assertSystemd(daemon_reload=True, changed=False)

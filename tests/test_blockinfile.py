@@ -4,7 +4,7 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience.unittest import LocalTestMixin
+from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
 from transilience import actions
 
 
@@ -14,7 +14,7 @@ def read_umask() -> int:
     return umask
 
 
-class BlockInFileTests(LocalTestMixin, unittest.TestCase):
+class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
     def assertBlockInFile(self, orig: List[str], expected: Optional[List[str]] = None, **kw):
         kw.setdefault("block", "")
 
@@ -32,12 +32,12 @@ class BlockInFileTests(LocalTestMixin, unittest.TestCase):
             action.run(None)
 
             if expected is not None:
-                self.assertTrue(action.changed)
+                self.assertTrue(action.result.changed)
 
                 with open(testfile, "rt") as fd:
                     self.assertEqual(fd.read(), "".join(expected))
             else:
-                self.assertFalse(action.changed)
+                self.assertFalse(action.result.changed)
 
                 with open(testfile, "rt") as fd:
                     self.assertEqual(fd.read(), "".join(orig))
@@ -45,43 +45,35 @@ class BlockInFileTests(LocalTestMixin, unittest.TestCase):
     def test_missing_noop(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            res = list(self.system.run_actions([
+            act = self.run_action(
                 actions.BlockInFile(
                     name="Create test file",
                     path=testfile,
                     mode=0o640,
                     block="test",
-                ),
-            ]))
+                ), changed=False)
 
             self.assertFalse(os.path.exists(testfile))
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.BlockInFile)
-            self.assertEqual(res[0].owner, -1)
-            self.assertEqual(res[0].group, -1)
-            self.assertFalse(res[0].changed)
+            self.assertEqual(act.owner, -1)
+            self.assertEqual(act.group, -1)
 
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            res = list(self.system.run_actions([
+            act = self.run_action(
                 actions.BlockInFile(
                     name="Create test file",
                     path=testfile,
                     mode=0o640,
                     create=True,
                     block="test",
-                ),
-            ]))
+                ))
 
             st = os.stat(testfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
 
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.BlockInFile)
-            self.assertEqual(res[0].owner, -1)
-            self.assertEqual(res[0].group, -1)
-            self.assertTrue(res[0].changed)
+            self.assertEqual(act.owner, -1)
+            self.assertEqual(act.group, -1)
 
             with open(testfile, "rb") as fd:
                 self.assertEqual(fd.readlines(), [

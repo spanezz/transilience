@@ -3,11 +3,11 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
+from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
 from transilience import actions
 
 
-class CopyTests:
+class CopyTests(ActionTestMixin):
     def test_create_src(self):
         with tempfile.TemporaryDirectory() as workdir:
             payload = "♥ test content"
@@ -18,24 +18,19 @@ class CopyTests:
             dstfile = os.path.join(workdir, "destination")
 
             self.system.share_file_prefix(workdir)
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.Copy(
                     name="Create test file",
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
-                )
-            ]))
+                ))
 
             with open(dstfile, "rt") as fd:
                 self.assertEqual(fd.read(), payload)
 
             st = os.stat(dstfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.Copy)
-            self.assertTrue(res[0].changed)
 
     def test_create_src_noop(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -50,24 +45,19 @@ class CopyTests:
                 os.fchmod(fd.fileno(), 0o640)
 
             self.system.share_file_prefix(workdir)
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.Copy(
                     name="Create test file",
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
-                )
-            ]))
+                ), changed=False)
 
             with open(dstfile, "rt") as fd:
                 self.assertEqual(fd.read(), payload)
 
             st = os.stat(dstfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.Copy)
-            self.assertFalse(res[0].changed)
 
     def test_create_src_perms_only(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -82,48 +72,38 @@ class CopyTests:
                 os.fchmod(fd.fileno(), 0o600)
 
             self.system.share_file_prefix(workdir)
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.Copy(
                     name="Create test file",
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
-                )
-            ]))
+                ))
 
             with open(dstfile, "rt") as fd:
                 self.assertEqual(fd.read(), payload)
 
             st = os.stat(dstfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.Copy)
-            self.assertTrue(res[0].changed)
 
     def test_create_content(self):
         with tempfile.TemporaryDirectory() as workdir:
             payload = "♥ test content"
             dstfile = os.path.join(workdir, "destination")
 
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.Copy(
                     name="Create test file",
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
-                )
-            ]))
+                ))
 
             with open(dstfile, "rt") as fd:
                 self.assertEqual(fd.read(), payload)
 
             st = os.stat(dstfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.Copy)
-            self.assertTrue(res[0].changed)
 
     def test_create_content_noop(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -134,24 +114,19 @@ class CopyTests:
                 fd.write(payload)
                 os.fchmod(fd.fileno(), 0o640)
 
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.Copy(
                     name="Create test file",
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
-                )
-            ]))
+                ), changed=False)
 
             with open(dstfile, "rt") as fd:
                 self.assertEqual(fd.read(), payload)
 
             st = os.stat(dstfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.Copy)
-            self.assertFalse(res[0].changed)
 
     def test_create_content_perms_only(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -166,24 +141,19 @@ class CopyTests:
                 os.fchmod(fd.fileno(), 0o600)
 
             self.system.share_file_prefix(workdir)
-            res = list(self.system.run_actions([
+            self.run_action(
                 actions.Copy(
                     name="Create test file",
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
-                )
-            ]))
+                ))
 
             with open(dstfile, "rt") as fd:
                 self.assertEqual(fd.read(), payload)
 
             st = os.stat(dstfile)
             self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
-
-            self.assertEqual(len(res), 1)
-            self.assertIsInstance(res[0], actions.Copy)
-            self.assertTrue(res[0].changed)
 
 
 class TestCopyLocal(CopyTests, LocalTestMixin, unittest.TestCase):
