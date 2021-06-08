@@ -14,7 +14,7 @@ def read_umask() -> int:
     return umask
 
 
-class TestBlockInFile(LocalTestMixin, unittest.TestCase):
+class BlockInFileTests(LocalTestMixin, unittest.TestCase):
     def assertBlockInFile(self, orig: List[str], expected: Optional[List[str]] = None, **kw):
         kw.setdefault("block", "")
 
@@ -230,3 +230,11 @@ class TestBlockInFile(LocalTestMixin, unittest.TestCase):
                 lines("line0", "line1", "line2"),
                 lines("line0", "line1", "line2", begin, "test", end),
                 block="test", insertafter="EOF")
+
+
+class TestBlockInFileLocal(LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestBlockInFileMitogen(LocalMitogenTestMixin, unittest.TestCase):
+    pass

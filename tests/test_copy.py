@@ -3,11 +3,11 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience.unittest import LocalTestMixin
+from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
 from transilience import actions
 
 
-class TestCopy(LocalTestMixin, unittest.TestCase):
+class CopyTests:
     def test_create_src(self):
         with tempfile.TemporaryDirectory() as workdir:
             payload = "♥ test content"
@@ -184,3 +184,11 @@ class TestCopy(LocalTestMixin, unittest.TestCase):
             self.assertEqual(len(res), 1)
             self.assertIsInstance(res[0], actions.Copy)
             self.assertTrue(res[0].changed)
+
+
+class TestCopyLocal(CopyTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestCopyMitogen(CopyTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass

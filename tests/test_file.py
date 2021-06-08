@@ -3,8 +3,7 @@ import tempfile
 import unittest
 import stat
 import os
-import mitogen.core
-from transilience.unittest import LocalTestMixin
+from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
 from transilience import actions
 
 
@@ -14,7 +13,7 @@ def read_umask() -> int:
     return umask
 
 
-class TestTouch(LocalTestMixin, unittest.TestCase):
+class TouchTests:
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
@@ -85,7 +84,15 @@ class TestTouch(LocalTestMixin, unittest.TestCase):
             self.assertTrue(res[0].changed)
 
 
-class TestFile(LocalTestMixin, unittest.TestCase):
+class TestTouchLocal(TouchTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestTouchMitogen(TouchTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass
+
+
+class FileTests:
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
@@ -128,7 +135,15 @@ class TestFile(LocalTestMixin, unittest.TestCase):
             self.assertTrue(res[0].changed)
 
 
-class TestAbsent(LocalTestMixin, unittest.TestCase):
+class TestFileLocal(FileTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestFileMitogen(FileTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass
+
+
+class AbsentTests:
     def test_missing(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
@@ -188,7 +203,15 @@ class TestAbsent(LocalTestMixin, unittest.TestCase):
             self.assertTrue(res[0].changed)
 
 
-class TestDirectory(LocalTestMixin, unittest.TestCase):
+class AbsentTestsLocal(AbsentTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class AbsentTestsMitogen(AbsentTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass
+
+
+class DirectoryTests:
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
@@ -241,7 +264,7 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
             with open(os.path.join(workdir, "testdir1"), "wb"):
                 pass
 
-            with self.assertRaises(mitogen.core.CallError):
+            with self.assertRaises(Exception):
                 list(self.system.run_actions([
                     actions.File(
                         name="Create test dir",
@@ -272,3 +295,11 @@ class TestDirectory(LocalTestMixin, unittest.TestCase):
             self.assertIsInstance(res[0], actions.File)
 
             self.assertTrue(res[0].changed)
+
+
+class TestDirectoryLocal(DirectoryTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestDirectoryMitogen(DirectoryTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass

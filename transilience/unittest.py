@@ -155,6 +155,18 @@ class LocalTestMixin:
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        from transilience.system import Local
+        cls.system = Local()
+
+
+class LocalMitogenTestMixin:
+    """
+    Mixin to run tests over a 'local' connection to the same system where tests
+    are run
+    """
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
         import mitogen
         from transilience.system import Mitogen
         cls.broker = mitogen.master.Broker()

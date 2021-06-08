@@ -27,7 +27,18 @@ class System:
     """
     Access a system to be provisioned
     """
-    pass
+
+    def share_file(self, pathname: str):
+        """
+        Register a pathname as exportable to children
+        """
+        pass
+
+    def share_file_prefix(self, pathname: str):
+        """
+        Register a pathname prefix as exportable to children
+        """
+        pass
 
 
 if mitogen is None:
@@ -102,7 +113,7 @@ else:
                     if not isinstance(action, actions.Action):
                         raise ValueError(f"action {action!r} is not an instance of Action")
                     self.pending_actions.append(
-                        chain.call_async(self.remote_run_actions, self.router.myself(), action.serialize())
+                        chain.call_async(self._remote_run_actions, self.router.myself(), action.serialize())
                     )
 
         def receive_actions(self) -> Generator[actions.Action, None, None]:
@@ -123,7 +134,7 @@ else:
 
         @classmethod
         @mitogen.core.takes_router
-        def remote_run_actions(
+        def _remote_run_actions(
                 self,
                 context: mitogen.core.Context,
                 action: Action,
@@ -134,10 +145,76 @@ else:
             return action.serialize()
 
 
+class LocalCallChain:
+    """
+    Wrap a sequence of actions, so that when one fails, all the following ones
+    will fail
+    """
+    def __init__(self, actions: Sequence[actions.Action]):
+        self.actions: List[actions.Action] = list(actions)
+        self.failed = False
+
+    def wrapped(self) -> Sequence[actions.Action]:
+        for action in self.actions:
+            def wrapped_run(*args, **kw):
+                if self.failed:
+                    raise RuntimeError(f"{action.name!r} failed because a previous action failed in the same chain")
+                try:
+                    action.run(*args, **kw)
+                    return action
+                except Exception:
+                    self.failed = True
+                    raise
+            yield wrapped_run
+
+
+class Local(System):
+    """
+    Work on the local system
+    """
+    def __init__(self):
+        self.pending_actions = collections.deque()
+
+    def transfer_file(self, src: str, dst: IO, **kw):
+        """
+        Fetch file ``src`` from the controller and write it to the open
+        file descriptor ``dst``.
+        """
+        with open(src, "rb") as fd:
+            shutil.copyfileobj(fd, dst)
+
+    def enqueue_chain(self, action_list: Sequence[actions.Action]):
+        """
+        Enqueue a chain of actions in the pipeline for this system
+        """
+        # Send out all calls in a pipeline
+        chain = LocalCallChain(action_list)
+        for run_meth in chain.wrapped():
+            self.pending_actions.append(run_meth(self))
+
+    def receive_actions(self) -> Generator[actions.Action, None, None]:
+        """
+        Receive results of the actions that have been sent so far.
+
+        It is ok to enqueue new actions while this method runs
+        """
+        while self.pending_actions:
+            yield self.pending_actions.popleft()
+
+    def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action, None, None]:
+        """
+        Run a sequence of provisioning actions in the chroot
+        """
+        self.enqueue_chain(action_list)
+        yield from self.receive_actions()
+
+
 class Chroot(System):
     """
     Access a system inside a chroot
     """
+    # Deprecated: this class is kept for compatibility with old code using
+    # transilience that hasn't been ported to using actions
     def __init__(self, root: str):
         self.root = root
 
