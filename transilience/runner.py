@@ -1,18 +1,12 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Dict, Set
+from typing import TYPE_CHECKING, Sequence, Dict, Set, List
 import importlib
 from . import actions
 from . import template
-
+from .role import PendingAction
 
 if TYPE_CHECKING:
     from .role import Role
-
-
-class PendingAction:
-    def __init__(self, role: Role, uuid: str):
-        self.role = role
-        self.uuid = uuid
 
 
 class Runner:
@@ -22,14 +16,14 @@ class Runner:
         self.pending: Dict[str, PendingAction] = {}
         self.notified: Set[str] = set()
 
-    def enqueue_chain(self, role: Role, tasks: Sequence[actions.Action]):
-        chain = []
-        for task in tasks:
-            for f in task.list_local_files_needed():
+    def enqueue_chain(self, role: Role, pending_actions: Sequence[PendingAction]):
+        chain: List[actions.Action] = []
+        for pa in pending_actions:
+            for f in pa.action.list_local_files_needed():
                 # TODO: if it's a directory, share by prefix?
                 self.system.share_file(f)
-            self.pending[task.uuid] = PendingAction(role, task.uuid)
-            chain.append(task)
+            self.pending[pa.action.uuid] = pa
+            chain.append(pa.action)
         self.system.enqueue_chain(chain)
 
     def receive(self):
