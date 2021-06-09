@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -x -e
+
+cd $(dirname "$0")
+
+sudo nose2-3 --with-coverage --coverage-report=term --verbose
