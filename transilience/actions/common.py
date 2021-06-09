@@ -263,7 +263,7 @@ class FileAction(Action):
         else:
             self.owner = -1
         if self.group is not None:
-            if isinstance(self.owner, str):
+            if isinstance(self.group, str):
                 self.group = grp.getgrnam(self.group).gr_gid
         else:
             self.group = -1
