@@ -2,8 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Union, List
 from dataclasses import dataclass
 import re
-from .action import Action
-from .common import FileMixin
+from .common import FileAction
 
 if TYPE_CHECKING:
     import transilience.system
@@ -11,7 +10,7 @@ if TYPE_CHECKING:
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/blockinfile_module.html
 @dataclass
-class BlockInFile(FileMixin, Action):
+class BlockInFile(FileAction):
     """
     Same as ansible's builtin.blockinfile.
 

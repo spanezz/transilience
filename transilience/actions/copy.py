@@ -2,8 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, IO
 from dataclasses import dataclass
 import hashlib
-from .action import Action
-from .common import FileMixin, PathObject
+from .common import FileAction, PathObject
 
 if TYPE_CHECKING:
     import transilience.system
@@ -11,7 +10,7 @@ if TYPE_CHECKING:
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html
 @dataclass
-class Copy(FileMixin, Action):
+class Copy(FileAction):
     """
     Same as ansible's builtin.copy.
 

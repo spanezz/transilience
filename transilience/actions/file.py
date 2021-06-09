@@ -4,18 +4,15 @@ from dataclasses import dataclass
 import tempfile
 import shutil
 import os
-from .action import Action
-from .common import FileMixin, PathObject
+from .common import FileAction, PathObject
 
 if TYPE_CHECKING:
     import transilience.system
 
-# TODO: review ansible modules/file.py to cross check what bits we miss
-
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
 @dataclass
-class File(FileMixin, Action):
+class File(FileAction):
     """
     Same as ansible's builtin.file.
 

@@ -9,6 +9,7 @@ import pwd
 import grp
 import os
 from transilience.utils.modechange import ModeChange
+from .action import Action
 
 if TYPE_CHECKING:
     import transilience.system
@@ -68,7 +69,7 @@ class PathObject:
 
 
 @dataclass
-class FileMixin:
+class FileAction(Action):
     owner: Optional[str] = None
     group: Optional[str] = None
     mode: Union[str, int, None] = None
