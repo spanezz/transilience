@@ -1,0 +1,51 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Sequence, Dict, Set
+import importlib
+from . import actions
+from . import template
+
+
+if TYPE_CHECKING:
+    from .role import Role
+
+
+class PendingAction:
+    def __init__(self, role: Role, uuid: str):
+        self.role = role
+        self.uuid = uuid
+
+
+class Runner:
+    def __init__(self, system):
+        self.template_engine = template.Engine()
+        self.system = system
+        self.pending: Dict[str, PendingAction] = {}
+        self.notified: Set[str] = set()
+
+    def enqueue_chain(self, role: Role, tasks: Sequence[actions.Action]):
+        chain = []
+        for task in tasks:
+            for f in task.list_local_files_needed():
+                # TODO: if it's a directory, share by prefix?
+                self.system.share_file(f)
+            self.pending[task.uuid] = PendingAction(role, task.uuid)
+            chain.append(task)
+        self.system.enqueue_chain(chain)
+
+    def receive(self):
+        for act in self.system.receive_actions():
+            pending = self.pending.pop(act.uuid)
+            pending.role.notify_done(act)
+            if act.result.changed:
+                self.notified.update(act.notify)
+                changed = "changed"
+            else:
+                changed = "noop"
+            print(f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {act.name}")
+
+    def add_role(self, name: str, **kw):
+        mod = importlib.import_module(f"roles.{name}")
+        role = mod.Role(**kw)
+        role.name = name
+        role.set_runner(self)
+        role.main()
