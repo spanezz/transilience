@@ -128,7 +128,6 @@ class ModeChange(NamedTuple):
         while p:
             # Which bits in the mode are operated on.
             affected = 0
-            op = None
 
             while p:
                 c = p[0]
@@ -227,7 +226,9 @@ class ModeChange(NamedTuple):
 
             mode = octal_to_mode(octal_mode)
             if len(mode_string) < 5:
-                mentioned = (mode & (stat.S_ISUID | stat.S_ISGID)) | stat.S_ISVTX | stat.S_IRWXUGO
+                mentioned = ((mode & (stat.S_ISUID | stat.S_ISGID)) |
+                             stat.S_ISVTX | stat.S_IRWXU | stat.S_IRWXG |
+                             stat.S_IRWXO)
             else:
                 mentioned = CHMOD_MODE_BITS
             return [cls.make_node_op_equals(mode, mentioned)]
