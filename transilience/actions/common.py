@@ -1,8 +1,9 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Union, Optional
+from typing import TYPE_CHECKING, Union, Optional, BinaryIO
 from dataclasses import dataclass
 import contextlib
 import tempfile
+import hashlib
 import stat
 import pwd
 import grp
@@ -11,6 +12,59 @@ from transilience.utils.modechange import ModeChange
 
 if TYPE_CHECKING:
     import transilience.system
+
+
+class PathObject:
+    """
+    Information about what is pointed by an existing path in the filesystem
+    """
+    # It would be nice to support dir_fd, but we need to not follow symlinks
+    # when doing chown/chmod, and at least chmod does not support using dir_fd
+    # and follow_symlinks together.
+    def __init__(self, path: str, follow: bool = True):
+        self.path = path
+        self.st = os.lstat(self.path)
+        if stat.S_ISLNK(self.st.st_mode) and follow:
+            self.st = os.stat(self.path)
+            self.path = os.readlink(self.path)
+
+    def __str__(self):
+        return self.path
+
+    def chmod(self, mode: int):
+        if self.islink():
+            try:
+                os.chmod(self.path, mode, follow_symlinks=False)
+            except NotImplementedError:
+                pass
+        else:
+            os.chmod(self.path, mode)
+
+    def chown(self, uid: int = -1, gid: int = -1):
+        os.chown(self.path, uid, gid, follow_symlinks=False)
+
+    def isdir(self) -> bool:
+        return stat.S_ISDIR(self.st.st_mode)
+
+    def islink(self) -> bool:
+        return stat.S_ISLNK(self.st.st_mode)
+
+    def walk(self, **kw):
+        yield from os.walk(self.path)
+
+    def sha1sum(self):
+        with open(self.path, "rb") as fd:
+            return self.compute_file_sha1sum(fd)
+
+    @classmethod
+    def compute_file_sha1sum(self, fd: BinaryIO) -> str:
+        h = hashlib.sha1()
+        while True:
+            buf = fd.read(40960)
+            if not buf:
+                break
+            h.update(buf)
+        return h.hexdigest()
 
 
 @dataclass
@@ -91,36 +145,47 @@ class FileMixin:
             os.fchown(fd, self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
 
-    def set_path_permissions_if_exists(self, path: str, record=True, dir_fd=None):
+    def get_path_object(
+            self,
+            path: str,
+            follow: Optional[bool] = None) -> Optional[PathObject]:
+        """
+        Return a PathObject from a given path
+        """
+        if follow is None:
+            follow = self.follow
+        try:
+            return PathObject(path=path, follow=follow)
+        except FileNotFoundError:
+            return None
+
+    def set_path_object_permissions(self, path: Optional[PathObject], record=True):
         """
         Set the permissions of an existing file.
 
         Calls self.set_changed() if the filesystem gets changed
         """
-        try:
-            st = os.stat(path, dir_fd=dir_fd)
-        except FileNotFoundError:
+        if path is None:
             return
-
-        mode = self._compute_fs_perms(orig=stat.S_IMODE(st.st_mode), is_dir=False)
+        mode = self._compute_fs_perms(orig=stat.S_IMODE(path.st.st_mode), is_dir=path.isdir())
         if mode is not None:
-            os.chmod(path, mode, dir_fd=dir_fd)
+            path.chmod(mode)
             if record:
                 self.mode = mode
             self.set_changed()
             self.log.info("%s: file mode set to 0o%o", path, mode)
         else:
             if record:
-                self.mode = stat.S_IMODE(st.st_mode)
+                self.mode = stat.S_IMODE(path.st.st_mode)
 
-        if (self.owner != -1 and self.owner != st.st_uid) or (self.group != -1 and self.group != st.st_gid):
+        if (self.owner != -1 and self.owner != path.st.st_uid) or (self.group != -1 and self.group != path.st.st_gid):
             self.set_changed()
-            os.chown(path, self.owner, self.group, dir_fd=dir_fd)
+            path.chown(self.owner, self.group)
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
         else:
             if record:
-                self.owner = st.st_uid
-                self.group = st.st_gid
+                self.owner = path.st.st_uid
+                self.group = path.st.st_gid
 
     @contextlib.contextmanager
     def create_file_if_missing(self, path: str, mode="w+b", **kwargs):

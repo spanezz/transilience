@@ -5,13 +5,14 @@ import unittest
 from unittest import mock
 from transilience.actions.common import FileMixin
 from transilience.actions.action import Action
+from transilience.unittest import FileModeMixin
 
 
 class ComputedPermsAction(FileMixin, Action):
     pass
 
 
-class TestComputeFsPerms(unittest.TestCase):
+class TestComputeFsPerms(FileModeMixin, unittest.TestCase):
     @contextlib.contextmanager
     def umask(self, umask: Optional[int]):
         if umask is None:
@@ -31,16 +32,7 @@ class TestComputeFsPerms(unittest.TestCase):
             act = ComputedPermsAction(mode=mode)
             act.run(None)
             computed = act._compute_fs_perms(orig, is_dir=is_dir)
-            if computed != expected:
-                if computed is None:
-                    fmtc = "None"
-                else:
-                    fmtc = f"0o{computed:o}"
-                if expected is None:
-                    fmte = "None"
-                else:
-                    fmte = f"0o{expected:o}"
-                self.fail(f"computed permissions {fmtc} is not the expected {fmte}")
+            self.assertFileModeEqual(computed, expected)
 
     def test_none(self):
         self.assertComputedPerms(mode=None, orig=None, expected=0o644, umask=0o022)
@@ -62,6 +54,14 @@ class TestComputeFsPerms(unittest.TestCase):
         self.assertComputedPerms(mode="u=rwX,g=rX,o=rX", orig=0o644, is_dir=True, expected=0o755)
         self.assertComputedPerms(mode="u=rwX,g=rX,o=rX", orig=0o744, is_dir=True, expected=0o755)
         self.assertComputedPerms(mode="u=rwX,g=rX,o=rX", orig=0o755, is_dir=True, expected=None)
+
+        self.assertComputedPerms(mode="ug=rwX,o=rX", orig=None, expected=0o664)
+        self.assertComputedPerms(mode="ug=rwX,o=rX", orig=0o664, expected=None)
+
+        self.assertComputedPerms(mode="ug=rwX,o=rX", orig=None, is_dir=True, expected=0o775)
+        self.assertComputedPerms(mode="ug=rwX,o=rX", orig=0o664, is_dir=True, expected=0o775)
+        self.assertComputedPerms(mode="ug=rwX,o=rX", orig=0o744, is_dir=True, expected=0o775)
+        self.assertComputedPerms(mode="ug=rwX,o=rX", orig=0o775, is_dir=True, expected=None)
 
         self.assertComputedPerms(mode="u=rwX,g=rX,o=", orig=None, expected=0o640)
         self.assertComputedPerms(mode="u=rwX,g=rX,o=", orig=0o640, expected=None)

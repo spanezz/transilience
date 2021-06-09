@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Union
 import contextlib
 import subprocess
 import logging
 import atexit
 import shlex
+import stat
 import uuid
 import os
 
@@ -145,6 +146,26 @@ def cleanup():
     # Use a list to prevent changing running_chroots during iteration
     for chroot in list(Chroot.running_chroots.values()):
         chroot.stop()
+
+
+class FileModeMixin:
+    """
+    Functions useful when working with file modes
+    """
+    def assertFileModeEqual(self, actual: Union[int, os.stat_result], expected: int):
+        if hasattr(actual, "st_mode"):
+            actual = stat.S_IMODE(actual.st_mode)
+        if actual == expected:
+            return
+        if actual is None:
+            fmta = "None"
+        else:
+            fmta = f"0o{actual:o}"
+        if expected is None:
+            fmte = "None"
+        else:
+            fmte = f"0o{expected:o}"
+        self.fail(f"permissions {fmta} is not the expected {fmte}")
 
 
 class ActionTestMixin:

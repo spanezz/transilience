@@ -1,11 +1,11 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from dataclasses import dataclass
+import tempfile
 import shutil
-import stat
 import os
 from .action import Action
-from .common import FileMixin
+from .common import FileMixin, PathObject
 
 if TYPE_CHECKING:
     import transilience.system
@@ -20,20 +20,17 @@ class File(FileMixin, Action):
     Same as ansible's builtin.file.
 
     Not yet implemented:
-     - state=hard
-     - state=link
      - access_time
      - modification_time
-     - follow
-     - force
      - modification_time_format
      - unsafe_writes
     """
     path: str = None
     state: str = "file"
     recurse: bool = False
-    # follow: bool = True
     src: Optional[str] = None
+    follow: bool = True
+    force: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -41,19 +38,153 @@ class File(FileMixin, Action):
             raise TypeError(f"{self.__class__}.path cannot be None")
         if self.recurse is True and self.state != "directory":
             raise ValueError(f"{self.__class__}.recurse only makes sense when state=directory")
-
-    def do_absent(self):
-        if os.path.isdir(self.path):
-            shutil.rmtree(self.path)
-            self.log.info("%s: removed directory recursively")
-            self.set_changed()
-        elif os.path.exists(self.path):
-            os.unlink(self.path)
-            self.log.info("%s: removed")
-            self.set_changed()
+        if self.state in ("link", "hard") and self.src is None:
+            raise ValueError(f"{self.__class__} needs src when state {self.state}")
 
     def do_file(self):
-        self.set_path_permissions_if_exists(self.path)
+        path = self.get_path_object(self.path)
+        if path is None:
+            raise RuntimeError("f{path} does not exist")
+        if path.isdir():
+            raise RuntimeError("f{path} is a directory")
+        if path.islink():
+            raise RuntimeError("f{path} is a symlink")
+        self.set_path_object_permissions(path)
+
+    def _set_tree_perms(self, path: PathObject):
+        for root, dirs, files in path.walk():
+            for fn in dirs:
+                self.set_path_object_permissions(
+                        PathObject(os.path.join(root, fn), follow=False), record=False)
+            for fn in files:
+                self.set_path_object_permissions(
+                        PathObject(os.path.join(root, fn), follow=False), record=False)
+
+    def _mkpath(self, path: str):
+        parent = os.path.dirname(path)
+        if not os.path.isdir(parent):
+            self._mkpath(parent)
+
+        self.log.info("%s: creating directory", path)
+        os.mkdir(path)
+
+        path = self.get_path_object(path)
+        self.set_path_object_permissions(path, record=False)
+
+    def do_directory(self):
+        path = self.get_path_object(self.path)
+        if path is None:
+            # TODO: review
+            self._mkpath(self.path)
+            self.set_changed()
+        elif path.isdir():
+            if self.recurse:
+                self._set_tree_perms(path)
+            self.set_path_object_permissions(path)
+        else:
+            raise RuntimeError("f{path} exists and is not a directory")
+
+    def do_link(self):
+        path = self.get_path_object(self.path, follow=False)
+
+        if path is not None:
+            # Don't replace a non-link unless force is True
+            if not path.islink() and not self.force:
+                raise RuntimeError(f"{path} already exists, is not a link, and force is False")
+
+            if path.isdir():
+                target = os.path.join(path.path, self.src)
+            else:
+                target = os.path.join(os.path.dirname(path.path), self.src)
+        else:
+            target = os.path.join(os.path.dirname(self.path), self.src)
+
+        target_po = self.get_path_object(target, follow=False)
+        if target_po is None and not self.force:
+            raise RuntimeError(f"{target!r} does not exists, and force is False")
+
+        if path is None:
+            os.symlink(target, self.path)
+        elif path.islink():
+            orig = os.readlink(self.path)
+            if orig == target:
+                return
+            os.symlink(target, self.path)
+        elif path.isdir():
+            # tempfile.mktemp is deprecated, but I cannot find a better way to
+            # atomically create a symlink with a nonconflicting name.
+            tmp = tempfile.mktemp(prefix=self.path)
+            os.symlink(target, tmp)
+            try:
+                os.rmdir(path.path)
+                os.rename(tmp, self.path)
+            except Exception:
+                os.unlink(tmp)
+                raise
+        else:
+            # tempfile.mktemp is deprecated, but I cannot find a better way to
+            # atomically create a symlink with a nonconflicting name
+            tmp = tempfile.mktemp(prefix=self.path)
+            os.symlink(target, tmp)
+            try:
+                os.rename(tmp, self.path)
+            except Exception:
+                os.unlink(tmp)
+                raise
+
+        self.set_changed()
+        path = self.get_path_object(self.path, follow=False)
+        self.set_path_object_permissions(path)
+
+    def do_hardlink(self):
+        path = self.get_path_object(self.path, follow=False)
+
+        target_po = self.get_path_object(self.src, follow=False)
+        if target_po is None:
+            raise RuntimeError(f"{self.src!r} does not exist")
+
+        if path is None:
+            os.link(self.src, self.path)
+        elif path.islink():
+            # tempfile.mktemp is deprecated, but I cannot find a better way to
+            # atomically create a symlink with a nonconflicting name.
+            tmp = tempfile.mktemp(prefix=self.path)
+            os.link(self.src, tmp)
+            try:
+                os.unlink(self.path)
+                os.rename(tmp, self.path)
+            except Exception:
+                os.unlink(tmp)
+                raise
+        elif path.isdir():
+            # tempfile.mktemp is deprecated, but I cannot find a better way to
+            # atomically create a symlink with a nonconflicting name.
+            tmp = tempfile.mktemp(prefix=self.path)
+            os.link(self.src, tmp)
+            try:
+                os.rmdir(path.path)
+                os.rename(tmp, self.path)
+            except Exception:
+                os.unlink(tmp)
+                raise
+        else:
+            target = self.get_path_object(self.src, follow=False)
+            # noop if it's a link to the same target
+            if (target.st.st_dev, target.st.st_ino) == (path.st.st_dev, path.st.st_ino):
+                return
+            # tempfile.mktemp is deprecated, but I cannot find a better way to
+            # atomically create a symlink with a nonconflicting name
+            tmp = tempfile.mktemp(prefix=self.path)
+            os.link(self.src, tmp)
+            try:
+                os.rename(tmp, self.path)
+            except Exception:
+                os.unlink(tmp)
+                raise
+
+        self.set_changed()
+        path = self.get_path_object(self.path, follow=False)
+        self.set_path_object_permissions(path)
 
     def do_touch(self):
         with self.create_file_if_missing(self.path) as fd:
@@ -61,63 +192,22 @@ class File(FileMixin, Action):
 
         if fd is None:
             # The file already exists
-            self.set_path_permissions_if_exists(self.path)
+            path = self.get_path_object(self.path)
+            self.set_path_object_permissions(path)
 
-    def _mkpath(self, path: str):
-        parent = os.path.dirname(path)
-        if not os.path.isdir(parent):
-            self._mkpath(parent)
+    def do_absent(self):
+        path = self.get_path_object(self.path)
+        if path is None:
+            return
 
-        if self.mode is not None:
-            mode = self.mode
-        else:
-            mode = 0o777
-
-        self.log.info("%s: creating directory, mode: 0x%o", path, mode)
-        os.mkdir(path, mode=mode)
-
-        if self.owner != -1 or self.group != -1:
-            self.log.info("%s: directory ownership set to %d %d", path, self.owner, self.group)
-            os.chown(path, self.owner, self.group)
-
-    def do_directory(self):
-        if os.path.isdir(self.path):
-            if self.recurse:
-                for root, dirs, files, dir_fd in os.fwalk(self.path):
-                    for fn in dirs:
-                        self.set_path_permissions_if_exists(fn, dir_fd=dir_fd, record=False)
-                    for fn in files:
-                        self.set_path_permissions_if_exists(fn, dir_fd=dir_fd, record=False)
-
-            self.set_path_permissions_if_exists(self.path)
-        else:
-            self._mkpath(self.path)
+        if path.isdir():
             self.set_changed()
-
-    def do_link(self):
-        try:
-            st = os.lstat(self.path)
-        except FileNotFoundError:
-            st = None
-
-        if st is not None and stat.S_ISDIR(st.st_mode):
-            relpath = self.path
+            shutil.rmtree(self.path, ignore_errors=False)
+            self.log.info("%s: removed directory recursively")
         else:
-            relpath = os.path.dirname(self.path)
-
-        src = os.path.join(relpath, self.src)
-        # TODO: bail out unless force=True
-        # TODO: implement conversion of existing things (except nonempty dirs) to links
-
-        if st is not None and stat.S_ISLNK(st.st_mode):
-            orig_src = os.readlink(self.path)
-            if orig_src == src:
-                return
-
-        os.symlink(src, self.path)
-        self.set_changed()
-
-        # TODO: set perms of src (ansible would, at least?)
+            os.unlink(self.path)
+            self.set_changed()
+            self.log.info("%s: removed")
 
     def run(self, system: transilience.system.System):
         super().run(system)

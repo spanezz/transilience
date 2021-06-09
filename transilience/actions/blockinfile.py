@@ -120,26 +120,27 @@ class BlockInFile(FileMixin, Action):
 
     def run(self, system: transilience.system.System):
         super().run(system)
-
-        # Read the original contents of the file
-        try:
-            with open(self.path, "rb") as fd:
-                lines = fd.readlines()
-        except FileNotFoundError:
+        path = self.get_path_object(self.path, follow=True)
+        if path is None:
             if not self.create:
                 return
-            else:
-                lines = []
+            dest = self.path
+            lines = []
+        else:
+            dest = path.path
+            # Read the original contents of the file
+            with open(dest, "rb") as fd:
+                lines = fd.readlines()
 
         orig_lines = list(lines)
         self.edit_lines(lines)
 
         # If file exists, and contents would not be changed, don't write it
         if orig_lines == lines:
-            self.set_path_permissions_if_exists(self.path)
+            self.set_path_object_permissions(path)
             return
 
         # Write out the new contents
-        with self.write_file_atomically(self.path, "wb") as fd:
+        with self.write_file_atomically(dest, "wb") as fd:
             for line in lines:
                 fd.write(line)

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
+from transilience.unittest import FileModeMixin, ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
 from transilience import actions
 
 
@@ -13,7 +13,7 @@ def read_umask() -> int:
     return umask
 
 
-class FileTestMixin(ActionTestMixin):
+class FileTestMixin(FileModeMixin, ActionTestMixin):
     def run_file_action(self, changed=True, **kw):
         return self.run_action(actions.File(name="Test action", **kw), changed=changed)
 
@@ -25,7 +25,7 @@ class TouchTests(FileTestMixin):
             act = self.run_file_action(path=testfile, state="touch", mode=0o640)
 
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+            self.assertFileModeEqual(st, 0o640)
 
             self.assertEqual(act.owner, -1)
             self.assertEqual(act.group, -1)
@@ -40,7 +40,7 @@ class TouchTests(FileTestMixin):
             act = self.run_file_action(path=testfile, state="touch", mode=0o640)
 
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+            self.assertFileModeEqual(st, 0o640)
 
             self.assertEqual(act.owner, os.getuid())
             self.assertEqual(act.group, os.getgid())
@@ -53,7 +53,7 @@ class TouchTests(FileTestMixin):
             act = self.run_file_action(path=testfile, state="touch")
 
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o666 & ~umask)
+            self.assertFileModeEqual(st, 0o666 & ~umask)
 
             self.assertEqual(act.mode, 0o666 & ~umask)
             self.assertEqual(act.owner, -1)
@@ -65,7 +65,7 @@ class TouchTests(FileTestMixin):
             act = self.run_file_action(path=testfile, state="touch", mode="u=rw,g=r,o=")
 
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+            self.assertFileModeEqual(st, 0o640)
 
             self.assertEqual(act.mode, 0o640)
             self.assertEqual(act.owner, -1)
@@ -84,8 +84,8 @@ class FileTests(FileTestMixin):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            self.run_file_action(path=testfile, state="file", mode=0o640, changed=False)
-
+            with self.assertRaises(Exception):
+                self.run_file_action(path=testfile, state="file", mode=0o640, changed=False)
             self.assertFalse(os.path.exists(testfile))
 
     def test_exists(self):
@@ -97,7 +97,7 @@ class FileTests(FileTestMixin):
 
             self.run_file_action(path=testfile, state="file", mode=0o640)
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+            self.assertFileModeEqual(st, 0o640)
 
     def test_create_symbolic_perms(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -108,7 +108,7 @@ class FileTests(FileTestMixin):
 
             act = self.run_file_action(path=testfile, state="touch", mode="u=rX,g+w")
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o460)
+            self.assertFileModeEqual(st, 0o460)
             self.assertEqual(act.mode, 0o460)
 
     def test_create_symbolic_perms_X(self):
@@ -120,7 +120,7 @@ class FileTests(FileTestMixin):
 
             act = self.run_file_action(path=testfile, state="touch", mode="u=rwX", changed=False)
             st = os.stat(testfile)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o640)
+            self.assertFileModeEqual(st, 0o640)
             self.assertEqual(act.mode, 0o640)
 
 
@@ -174,22 +174,31 @@ class DirectoryTests(FileTestMixin):
             testdir = os.path.join(workdir, "testdir1", "testdir2")
             self.run_file_action(path=testdir, state="directory", mode=0o750)
             st = os.stat(testdir)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
+            self.assertFileModeEqual(st, 0o750)
             st = os.stat(os.path.dirname(testdir))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
+            self.assertFileModeEqual(st, 0o750)
+
+    def test_create_symbolic(self):
+        with tempfile.TemporaryDirectory() as workdir:
+            testdir = os.path.join(workdir, "testdir1", "testdir2")
+            self.run_file_action(path=testdir, state="directory", mode="ug=rwX,o=rX")
+            st = os.stat(testdir)
+            self.assertFileModeEqual(st, 0o775)
+            st = os.stat(os.path.dirname(testdir))
+            self.assertFileModeEqual(st, 0o775)
 
     def test_exists(self):
         umask = read_umask()
 
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir1", "testdir2")
-            os.makedirs(testdir, mode=0x700)
+            os.makedirs(testdir, mode=0o700)
 
             self.run_file_action(path=testdir, state="directory", mode=0o750)
             st = os.stat(testdir)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
+            self.assertFileModeEqual(st, 0o750)
             st = os.stat(os.path.dirname(testdir))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
+            self.assertFileModeEqual(st, 0o777 & ~umask)
 
     def test_exists_as_file(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -207,9 +216,9 @@ class DirectoryTests(FileTestMixin):
             testdir = os.path.join(workdir, "testdir1", "testdir2")
             self.run_file_action(path=testdir, state="directory")
             st = os.stat(testdir)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
+            self.assertFileModeEqual(st, 0o777 & ~umask)
             st = os.stat(os.path.dirname(testdir))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o777 & ~umask)
+            self.assertFileModeEqual(st, 0o777 & ~umask)
 
     def test_recurse(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -224,15 +233,15 @@ class DirectoryTests(FileTestMixin):
             self.run_file_action(path=workdir, state="directory", mode="u=rwX,g=rX,o=rX", recurse=True)
 
             st = os.stat(workdir)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            self.assertFileModeEqual(st, 0o755)
             st = os.stat(os.path.join(workdir, "testdir1"))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            self.assertFileModeEqual(st, 0o755)
             st = os.stat(os.path.join(workdir, "testdir1", "testdir2"))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            self.assertFileModeEqual(st, 0o755)
             st = os.stat(os.path.join(workdir, "file1"))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o644)
+            self.assertFileModeEqual(st, 0o644)
             st = os.stat(os.path.join(workdir, "testdir1", "testdir2", "file2"))
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o755)
+            self.assertFileModeEqual(st, 0o755)
 
 
 class TestDirectoryLocal(DirectoryTests, LocalTestMixin, unittest.TestCase):
