@@ -19,7 +19,7 @@ class BlockInFile(FileAction):
      - unsafe_writes
      - validate
     """
-    path: str = None
+    path: str = ""
     block: Union[str, bytes] = ""
     insertafter: Optional[str] = None
     insertbefore: Optional[str] = None
@@ -31,8 +31,8 @@ class BlockInFile(FileAction):
 
     def __post_init__(self):
         super().__post_init__()
-        if self.path is None:
-            raise TypeError(f"{self.__class__}.path cannot be None")
+        if self.path == "":
+            raise TypeError(f"{self.__class__}.path cannot be empty")
 
         if self.insertbefore is not None and self.insertafter is not None:
             raise ValueError(f"{self.__class__}: insertbefore and insertafter cannot both be set")
@@ -120,6 +120,7 @@ class BlockInFile(FileAction):
     def run(self, system: transilience.system.System):
         super().run(system)
         path = self.get_path_object(self.path, follow=True)
+        lines: List[bytes]
         if path is None:
             if not self.create:
                 return

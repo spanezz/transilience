@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional, Union, List
+from typing import TYPE_CHECKING, Optional, Union, List, Dict, Any, cast
 from dataclasses import dataclass, field
 import subprocess
 import glob
@@ -56,8 +56,9 @@ class Command(Action):
             if not glob.glob(removes):
                 return
 
-        kwargs = {
+        kwargs: Dict[str, Any] = {
             "capture_output": True,
+            "check": True,
         }
         if self.chdir:
             kwargs["cwd"] = self.chdir
@@ -75,9 +76,11 @@ class Command(Action):
         if self.argv:
             args = self.argv
         else:
-            args = shlex.split(self.cmd)
+            # We can cast, because __post_init__ makes sure self.cmd is not
+            # None if self.argv is None
+            args = shlex.split(cast(str, self.cmd))
 
         self.set_changed()
-        res = subprocess.run(args, **kwargs, check=True)
+        res = subprocess.run(args, **kwargs)
         self.stdout = res.stdout
         self.stderr = res.stderr

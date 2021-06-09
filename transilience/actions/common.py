@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Union, Optional, BinaryIO
+from typing import TYPE_CHECKING, Union, Optional, BinaryIO, cast
 from dataclasses import dataclass
 import contextlib
 import tempfile
@@ -70,8 +70,8 @@ class PathObject:
 
 @dataclass
 class FileAction(Action):
-    owner: Optional[str] = None
-    group: Optional[str] = None
+    owner: Union[str, int, None] = None
+    group: Union[str, int, None] = None
     mode: Union[str, int, None] = None
 
     # TODO: seuser
@@ -143,7 +143,7 @@ class FileAction(Action):
             self.log.info("%s: file mode set to 0o%o", path, mode)
 
         if self.owner != -1 or self.group != -1:
-            os.fchown(fd, self.owner, self.group)
+            os.fchown(fd, cast(int, self.owner), cast(int, self.group))
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
 
     def get_path_object(
@@ -154,7 +154,7 @@ class FileAction(Action):
         Return a PathObject from a given path
         """
         if follow is None:
-            follow = self.follow
+            follow = getattr(self, "follow", True)
         try:
             return PathObject(path=path, follow=follow)
         except FileNotFoundError:
@@ -181,7 +181,7 @@ class FileAction(Action):
 
         if (self.owner != -1 and self.owner != path.st.st_uid) or (self.group != -1 and self.group != path.st.st_gid):
             self.set_changed()
-            path.chown(self.owner, self.group)
+            path.chown(cast(int, self.owner), cast(int, self.group))
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
         else:
             if record:
@@ -256,12 +256,15 @@ class FileAction(Action):
         super().run(system)
 
         # Resolve/validate owner and group before we perform any action
+        # From this point on we can cast self.owner and self.group to int
         if self.owner is not None:
-            self.owner = pwd.getpwnam(self.owner).pw_uid
+            if isinstance(self.owner, str):
+                self.owner = pwd.getpwnam(self.owner).pw_uid
         else:
             self.owner = -1
         if self.group is not None:
-            self.group = grp.getgrnam(self.group).gr_gid
+            if isinstance(self.owner, str):
+                self.group = grp.getgrnam(self.group).gr_gid
         else:
             self.group = -1
 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional, IO
+from typing import TYPE_CHECKING, Optional, Union
 from dataclasses import dataclass
 import hashlib
 from .common import FileAction, PathObject
@@ -25,16 +25,16 @@ class Copy(FileAction):
      - validate
      - src as directory
     """
-    dest: str = None
+    dest: str = ""
     src: Optional[str] = None
-    content: Optional[str, bytes] = None
+    content: Union[str, bytes, None] = None
     checksum: Optional[str] = None
     follow: bool = True
 
     def __post_init__(self):
         super().__post_init__()
-        if self.dest is None:
-            raise TypeError(f"{self.__class__}.dest cannot be None")
+        if self.dest == "":
+            raise TypeError(f"{self.__class__}.dest cannot be empty")
 
         # If we are given a source file, compute its checksum
         if self.src is not None:

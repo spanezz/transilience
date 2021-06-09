@@ -69,10 +69,11 @@ class Platform(Facts):
                     facts['architecture'] = data[0]
             else:
                 bootinfo_bin = shutil.which('bootinfo')
-                res = subprocess.run([bootinfo_bin, '-p'], capture_output=True, text=True)
-                if res.returncode == 0:
-                    data = res.stdout.splitlines()
-                    facts['architecture'] = data[0]
+                if bootinfo_bin is not None:
+                    res = subprocess.run([bootinfo_bin, '-p'], capture_output=True, text=True)
+                    if res.returncode == 0:
+                        data = res.stdout.splitlines()
+                        facts['architecture'] = data[0]
         elif facts['system'] == 'OpenBSD':
             facts['architecture'] = platform.uname()[5]
 

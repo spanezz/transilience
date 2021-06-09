@@ -22,7 +22,7 @@ class File(FileAction):
      - modification_time_format
      - unsafe_writes
     """
-    path: str = None
+    path: Optional[str] = None
     state: str = "file"
     recurse: bool = False
     src: Optional[str] = None
@@ -65,8 +65,8 @@ class File(FileAction):
         self.log.info("%s: creating directory", path)
         os.mkdir(path)
 
-        path = self.get_path_object(path)
-        self.set_path_object_permissions(path, record=False)
+        patho = self.get_path_object(path)
+        self.set_path_object_permissions(patho, record=False)
 
     def do_directory(self):
         path = self.get_path_object(self.path)
