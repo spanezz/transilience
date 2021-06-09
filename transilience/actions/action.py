@@ -38,6 +38,13 @@ class Action:
     def __post_init__(self):
         self.log = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
 
+    def list_local_files_needed(self) -> List[str]:
+        """
+        Return a list of all files needed by this action, that are found in the
+        local file system
+        """
+        return []
+
     def set_changed(self):
         """
         Mark that this action has changed something

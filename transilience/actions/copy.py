@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, List
 from dataclasses import dataclass
 import hashlib
+import os
 from .common import FileAction, PathObject
 
 if TYPE_CHECKING:
@@ -42,6 +43,7 @@ class Copy(FileAction):
                 raise ValueError(f"{self.__class__}: src and content cannot both be set")
 
             if self.checksum is None:
+                self.src = os.path.abspath(self.src)
                 with open(self.src, "rb") as fd:
                     self.checksum = PathObject.compute_file_sha1sum(fd)
         elif self.content is not None:
@@ -54,6 +56,12 @@ class Copy(FileAction):
                 self.checksum = h.hexdigest()
         else:
             raise ValueError(f"{self.__class__}: one of src and content needs to be set")
+
+    def list_local_files_needed(self) -> List[str]:
+        res = super().list_local_files_needed()
+        if self.src is not None:
+            res.append(self.src)
+        return res
 
     def write_content(self):
         """
