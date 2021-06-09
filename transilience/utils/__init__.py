@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Sequence
+from typing import Sequence, Optional
 import logging
 import contextlib
 import subprocess
@@ -24,7 +24,7 @@ def run(cmd: Sequence[str], check: bool = True, **kw) -> subprocess.CompletedPro
 def atomic_writer(
         fname: str,
         mode: str = "w+b",
-        chmod: int = 0o664,
+        chmod: Optional[int] = 0o664,
         sync: bool = True,
         use_umask: bool = False,
         **kw):
@@ -58,7 +58,8 @@ def atomic_writer(
         outfd.flush()
         if sync:
             os.fdatasync(fd)
-        os.fchmod(fd, chmod)
+        if chmod is not None:
+            os.fchmod(fd, chmod)
         os.rename(abspath, fname)
     except Exception:
         os.unlink(abspath)
