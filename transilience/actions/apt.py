@@ -34,16 +34,16 @@ class Apt(Action):
      - update_cache_retry_max_delay
      - upgrade
     """
-    pkg: List[str] = field(default_factory=list)
+    name: List[str] = field(default_factory=list)
     state: str = "present"
     install_recommends: Optional[bool] = None
 
     def summary(self):
         if self.state == "present":
-            if len(self.pkg) == 1:
-                return f"Install package {self.pkg[0]}"
+            if len(self.name) == 1:
+                return f"Install package {self.name[0]}"
             else:
-                return f"Install packages {', '.join(self.pkg)}"
+                return f"Install packages {', '.join(self.name)}"
         else:
             return f"{self.__class__}: unknown state {self.state!r}"
 
@@ -66,7 +66,7 @@ class Apt(Action):
         """
         Install the given package(s), if they are not installed yet
         """
-        if self.all_installed(self.pkg):
+        if self.all_installed(self.name):
             return
 
         cmd = ["apt-get", "-y", "install"]
@@ -74,7 +74,7 @@ class Apt(Action):
             cmd.append("--install-recommends")
         elif self.install_recommends is False:
             cmd.append("--no-install-recommends")
-        cmd += self.pkg
+        cmd += self.name
 
         self.run_command(cmd)
         self.set_changed()
