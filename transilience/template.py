@@ -25,6 +25,7 @@ class Engine:
 
         self.env = jinja2.Environment(
                 autoescape=False,
+                trim_blocks=True,
                 finalize=finalize_value,
                 loader=jinja2.FileSystemLoader(template_paths))
 
