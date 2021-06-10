@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable
 from transilience import actions
 
 if TYPE_CHECKING:
@@ -8,13 +8,18 @@ if TYPE_CHECKING:
     from transilience import template
 
 
+ChainedMethod = Callable[[actions.Action], None]
+
+
 class PendingAction:
     def __init__(
             self,
             role: "Role",
             action: actions.Action,
             name: Optional[str] = None,
-            notify: Union[None, "Role", Sequence["Role"]] = None):
+            notify: Union[None, "Role", Sequence["Role"]] = None,
+            then: Union[None, ChainedMethod, Sequence[ChainedMethod]] = None,
+            ):
         self.name = name
         self.role = role
         self.action = action
@@ -27,24 +32,19 @@ class PendingAction:
         else:
             self.notify = list(notify)
 
+        self.then: List[ChainedMethod]
+        if then is None:
+            self.then = []
+        elif callable(then):
+            self.then = [then]
+        else:
+            self.then = list(then)
+
     @property
     def summary(self):
         if self.name is None:
             self.name = self.action.summary()
         return self.name
-
-    def add(
-            self,
-            name: Optional[str] = None,
-            notify: Union[None, "Role", Sequence["Role"]] = None):
-        self.name = name
-        if notify is None:
-            pass
-        elif issubclass(notify, Role):
-            self.notify.append(notify)
-        else:
-            self.notify.extend(notify)
-        return self
 
 
 class ActionMaker:
