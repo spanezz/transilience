@@ -28,6 +28,15 @@ class System:
         """
         raise NotImplementedError(f"{self.__class__}.create_pipeline is not implemented")
 
+    def execute(self, action: Action) -> Action:
+        """
+        Execute an action immediately.
+
+        For remote systems, this may have serious latency issues, since it
+        requires a full round trip for each action that gets executed
+        """
+        raise NotImplementedError(f"{self.__class__}.execute is not implemented")
+
     def transfer_file(self, src: str, dst: BinaryIO, **kw):
         """
         Fetch file ``src`` from the controller and write it to the open

@@ -54,6 +54,10 @@ class Local(System):
     def create_pipeline(self) -> "Pipeline":
         return LocalPipeline(self)
 
+    def execute(self, action: actions.Action) -> actions.Action:
+        action.run(self)
+        return action
+
     def receive_actions(self) -> Generator[actions.Action, None, None]:
         """
         Receive results of the actions that have been sent so far.

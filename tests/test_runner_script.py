@@ -3,11 +3,12 @@ import tempfile
 import unittest
 import os
 from transilience.runner import Script
+from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
 
 
-class TestScript(unittest.TestCase):
+class ScriptTests:
     def test_sequence(self):
-        script = Script()
+        script = Script(system=self.system)
         with tempfile.TemporaryDirectory() as workdir:
             testdir = os.path.join(workdir, "testdir")
             script.builtin.file(state="directory", path=testdir)
@@ -27,3 +28,11 @@ class TestScript(unittest.TestCase):
             testfile = os.path.join(workdir, "testfile")
             with self.assertRaises(Exception):
                 script.builtin.file(state="file", path=testfile)
+
+
+class TestScriptLocal(ScriptTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestScriptMitogen(ScriptTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass

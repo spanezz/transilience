@@ -25,16 +25,31 @@ class NamespaceRunner:
 
         def runner(*args, **kw):
             act = act_cls(*args, **kw)
-            return act.run(self._system)
+            return self._system.execute(act)
         return runner
 
 
 class Script:
-    def __init__(self):
-        self._system = Local()
+    """
+    Convenient way to instantiate and run actions on a System, one at a time.
+
+    It defaults to the local system, and it is convenient as a way to use
+    Transilience actions as building blocks in normal Python scripts.
+
+    If used remotely, this requires one round trip for each and every action
+    that gets executed, and quickly becomes inefficient. Use a pipelining
+    runner in that case.
+    """
+    def __init__(self, system: System = None):
+        if system is None:
+            system = Local()
+        self._system = system
         self.add_namespace(builtin)
 
     def add_namespace(self, namespace: Namespace, name=None):
+        """
+        Add a new namespace of actions to those accessible by this Script
+        """
         if name is None:
             name = namespace.name
         setattr(self, name, NamespaceRunner(self._system, namespace))

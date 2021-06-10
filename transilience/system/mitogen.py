@@ -98,6 +98,10 @@ else:
         def create_pipeline(self) -> "Pipeline":
             return MitogenPipeline(self)
 
+        def execute(self, action: actions.Action) -> actions.Action:
+            res = self.context.call(self._remote_run_actions, self.router.myself(), action.serialize())
+            return Action.deserialize(res)
+
         def receive_actions(self) -> Generator[actions.Action, None, None]:
             """
             Receive results of the actions that have been sent so far.
