@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence, Optional, List, Union
-import contextlib
 from transilience import actions
 
 if TYPE_CHECKING:
     from .runner import Runner
-    from transilience.actions.namespace import Namespace
+    from transilience.system import Pipeline
+    from transilience import template
 
 
 class PendingAction:
@@ -14,25 +14,30 @@ class PendingAction:
             role: "Role",
             action: actions.Action,
             name: Optional[str] = None,
-            notify: Optional[List["Role"]] = None):
-        self._name = name
+            notify: Union[None, "Role", Sequence["Role"]] = None):
+        self.name = name
         self.role = role
         self.action = action
+
+        self.notify: List[str]
         if notify is None:
-            notify = []
-        self.notify: List[str] = notify
+            self.notify = []
+        elif issubclass(notify, Role):
+            self.notify = [notify]
+        else:
+            self.notify = list(notify)
 
     @property
     def summary(self):
-        if self._name is None:
-            self._name = self.action.summary()
-        return self._name
+        if self.name is None:
+            self.name = self.action.summary()
+        return self.name
 
     def add(
             self,
             name: Optional[str] = None,
             notify: Union[None, "Role", Sequence["Role"]] = None):
-        self._name = name
+        self.name = name
         if notify is None:
             pass
         elif issubclass(notify, Role):
@@ -43,8 +48,8 @@ class PendingAction:
 
 
 class ActionMaker:
-    def __init__(self, chain: "ChainHelper", namespace: Namespace):
-        self.chain = chain
+    def __init__(self, role: "Role", namespace: actions.Namespace):
+        self.role = role
         self.namespace = namespace
 
     def __getattr__(self, name: str):
@@ -52,44 +57,45 @@ class ActionMaker:
         if act_cls is not None:
             def make(*args, **kw):
                 act = act_cls(*args, **kw)
-                return self.chain.add(act)
+                pa = PendingAction(self.role, act)
+                self.role._runner.add_pending_action(pa)
+                return pa
             return make
         raise AttributeError(name)
 
 
-class ChainHelper:
-    def __init__(self, role: "Role"):
-        self.role = role
-        self.actions: List[actions.Action] = []
-        self.builtin = ActionMaker(self, actions.builtin)
-
-    def add(self, act: actions.Action, **kw):
-        pa = PendingAction(self.role, act, **kw)
-        self.actions.append(pa)
-        return pa
-
-
 class Role:
+    """
+    A collection of related actions to perform a provisioning macro-task on a
+    system.
+
+    The main point of a Role is to enqueue actions to be executed on a System,
+    and possibly enqueue some more based on their results
+    """
     def __init__(self):
         self.name: Optional[str] = None
-        self.template_engine = None
-        self.runner: "Runner" = None
+        self.template_engine: template.Engine
+        self.runner: "Runner"
+        self.pipeline: Pipeline
 
-    @contextlib.contextmanager
-    def chain(self):
-        c = ChainHelper(self)
-        yield c
-        self.runner.enqueue_chain(self, c.actions)
+    def add(self, action: actions.Action, **kw):
+        pa = PendingAction(self, action, **kw)
+        self.runner.add_pending_action(pa)
+        return pa
 
     def set_runner(self, runner: "Runner"):
         self.runner = runner
         self.template_engine = runner.template_engine
-
-    def start_chain(self, chain: Sequence[actions.Action]):
-        self.runner.enqueue_chain(self, chain)
-
-    def main(self):
-        raise NotImplementedError(f"{self.__class__}.start not implemented")
+        self.pipeline = runner.system.create_pipeline()
 
     def notify_done(self, action: actions.Action):
         pass
+
+    def close(self):
+        """
+        Called when the role is done executing
+        """
+        self.pipeline.close()
+
+    def main(self):
+        raise NotImplementedError(f"{self.__class__}.start not implemented")

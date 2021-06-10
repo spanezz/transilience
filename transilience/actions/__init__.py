@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .action import Action
 from .namespace import Namespace
 from . import facts
@@ -12,4 +13,4 @@ from . import apt  # noqa
 from . import command  # noqa
 from . import systemd  # noqa
 
-__all__ = ["Action", "builtin", "facts"]
+__all__ = ["Action", "Namespace", "builtin", "facts"]

@@ -30,6 +30,15 @@ class Result:
 
 @dataclass
 class Action:
+    """
+    Base class for all action implementations.
+
+    An Action is the equivalent of an ansible module: a declarative
+    representation of an idempotent operation on a system.
+
+    An Action can be run immediately, or serialized, sent to a remote system,
+    run, and sent back with its results.
+    """
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     result: Result = field(default_factory=Result)
 
