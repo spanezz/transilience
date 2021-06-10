@@ -5,6 +5,7 @@ from transilience import actions
 
 if TYPE_CHECKING:
     from .runner import Runner
+    from transilience.actions.namespace import Namespace
 
 
 class PendingAction:
@@ -42,25 +43,25 @@ class PendingAction:
 
 
 class ActionMaker:
-    def __init__(self, chain: "ChainHelper", module):
+    def __init__(self, chain: "ChainHelper", namespace: Namespace):
         self.chain = chain
-        self.module = module
+        self.namespace = namespace
 
     def __getattr__(self, name: str):
-        act_cls = getattr(self.module, name, None)
+        act_cls = getattr(self.namespace, name, None)
         if act_cls is not None:
             def make(*args, **kw):
                 act = act_cls(*args, **kw)
                 return self.chain.add(act)
             return make
-        return super().__getattr__(name)
+        raise AttributeError(name)
 
 
 class ChainHelper:
     def __init__(self, role: "Role"):
         self.role = role
         self.actions: List[actions.Action] = []
-        self.core = ActionMaker(self, actions)
+        self.builtin = ActionMaker(self, actions.builtin)
 
     def add(self, act: actions.Action, **kw):
         pa = PendingAction(self.role, act, **kw)

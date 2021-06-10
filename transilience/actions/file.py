@@ -5,12 +5,14 @@ import tempfile
 import shutil
 import os
 from .common import FileAction, PathObject
+from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
+@builtin.action(name="file")
 @dataclass
 class File(FileAction):
     """

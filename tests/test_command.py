@@ -3,12 +3,12 @@ import tempfile
 import unittest
 import shlex
 import os
-from transilience import actions
+from transilience.actions import builtin
 
 
 class TestCommand(unittest.TestCase):
     def assertRun(self, changed=True, **kwargs):
-        act = actions.Command(**kwargs)
+        act = builtin.command(**kwargs)
         act.run(None)
         self.assertEqual(act.result.changed, changed)
         return act

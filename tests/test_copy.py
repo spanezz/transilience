@@ -4,7 +4,7 @@ import unittest
 import stat
 import os
 from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
-from transilience import actions
+from transilience.actions import builtin
 
 
 class CopyTests(ActionTestMixin):
@@ -19,7 +19,7 @@ class CopyTests(ActionTestMixin):
 
             self.system.share_file_prefix(workdir)
             self.run_action(
-                actions.Copy(
+                builtin.copy(
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
@@ -45,7 +45,7 @@ class CopyTests(ActionTestMixin):
 
             self.system.share_file_prefix(workdir)
             self.run_action(
-                actions.Copy(
+                builtin.copy(
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
@@ -71,7 +71,7 @@ class CopyTests(ActionTestMixin):
 
             self.system.share_file_prefix(workdir)
             self.run_action(
-                actions.Copy(
+                builtin.copy(
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
@@ -89,7 +89,7 @@ class CopyTests(ActionTestMixin):
             dstfile = os.path.join(workdir, "destination")
 
             self.run_action(
-                actions.Copy(
+                builtin.copy(
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
@@ -111,7 +111,7 @@ class CopyTests(ActionTestMixin):
                 os.fchmod(fd.fileno(), 0o640)
 
             self.run_action(
-                actions.Copy(
+                builtin.copy(
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
@@ -137,7 +137,7 @@ class CopyTests(ActionTestMixin):
 
             self.system.share_file_prefix(workdir)
             self.run_action(
-                actions.Copy(
+                builtin.copy(
                     content=payload,
                     dest=dstfile,
                     mode=0o640,

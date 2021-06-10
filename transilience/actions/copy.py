@@ -4,12 +4,14 @@ from dataclasses import dataclass
 import hashlib
 import os
 from .common import FileAction, PathObject
+from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html
+@builtin.action(name="copy")
 @dataclass
 class Copy(FileAction):
     """

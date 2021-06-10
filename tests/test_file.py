@@ -4,7 +4,7 @@ import unittest
 import stat
 import os
 from transilience.unittest import FileModeMixin, ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
-from transilience import actions
+from transilience.actions import builtin
 
 
 def read_umask() -> int:
@@ -15,7 +15,7 @@ def read_umask() -> int:
 
 class FileTestMixin(FileModeMixin, ActionTestMixin):
     def run_file_action(self, changed=True, **kw):
-        return self.run_action(actions.File(**kw), changed=changed)
+        return self.run_action(builtin.file(**kw), changed=changed)
 
 
 class TouchTests(FileTestMixin):

@@ -6,12 +6,14 @@ import glob
 import os
 import shlex
 from .action import Action
+from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/command_module.html
+@builtin.action(name="command")
 @dataclass
 class Command(Action):
     """

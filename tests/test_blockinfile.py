@@ -5,7 +5,7 @@ import unittest
 import stat
 import os
 from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
-from transilience import actions
+from transilience.actions import builtin
 
 
 def read_umask() -> int:
@@ -24,7 +24,7 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
                 for line in orig:
                     fd.write(line.encode())
 
-            action = actions.BlockInFile(
+            action = builtin.blockinfile(
                 path=testfile,
                 **kw
             )
@@ -45,7 +45,7 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
             act = self.run_action(
-                actions.BlockInFile(
+                builtin.blockinfile(
                     path=testfile,
                     mode=0o640,
                     block="test",
@@ -59,7 +59,7 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
             act = self.run_action(
-                actions.BlockInFile(
+                builtin.blockinfile(
                     path=testfile,
                     mode=0o640,
                     create=True,

@@ -3,18 +3,18 @@ import unittest
 import inspect
 import uuid
 from transilience.unittest import ActionTestMixin, ChrootTestMixin
-from transilience import actions
+from transilience.actions import builtin
 
 
 class TestSystemd(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
     def assertSystemd(self, changed=True, **kwargs):
-        orig = actions.Systemd(**kwargs)
+        orig = builtin.systemd(**kwargs)
         return self.run_action(orig, changed=changed)
 
     def setUp(self):
         self.unit_name = str(uuid.uuid4())
 
-        self.run_action(actions.Copy(
+        self.run_action(builtin.copy(
                 dest=f"/usr/lib/systemd/system/{self.unit_name}.service",
                 content=inspect.cleandoc(f"""
                 [Unit]
@@ -29,7 +29,7 @@ class TestSystemd(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
             )
         )
 
-        self.run_action(actions.Systemd(daemon_reload=True), changed=False)
+        self.run_action(builtin.systemd(daemon_reload=True), changed=False)
 
     def test_daemon_reload(self):
         self.assertSystemd(daemon_reload=True, changed=False)

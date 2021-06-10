@@ -3,12 +3,14 @@ from typing import TYPE_CHECKING, Optional, Union, List
 from dataclasses import dataclass
 import re
 from .common import FileAction
+from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/blockinfile_module.html
+@builtin.action(name="blockinfile")
 @dataclass
 class BlockInFile(FileAction):
     """

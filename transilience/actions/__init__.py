@@ -1,10 +1,15 @@
 from .action import Action
-from .file import File
-from .copy import Copy
-from .blockinfile import BlockInFile
-from .apt import Apt
-from .command import Command
-from .systemd import Systemd
+from .namespace import Namespace
 from . import facts
 
-__all__ = ["Action", "File", "Copy", "BlockInFile", "Apt", "Command", "Systemd", "facts"]
+builtin = Namespace("builtin")
+
+# Import action modules so they can register with the builtin namespace
+from . import file  # noqa
+from . import copy  # noqa
+from . import blockinfile  # noqa
+from . import apt  # noqa
+from . import command  # noqa
+from . import systemd  # noqa
+
+__all__ = ["Action", "builtin", "facts"]

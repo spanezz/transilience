@@ -3,12 +3,14 @@ from typing import TYPE_CHECKING, Optional, List
 from dataclasses import dataclass, field
 import subprocess
 from .action import Action
+from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html
+@builtin.action(name="apt")
 @dataclass
 class Apt(Action):
     """

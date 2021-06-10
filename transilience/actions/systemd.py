@@ -6,12 +6,14 @@ import shutil
 import shlex
 import os
 from .action import Action
+from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/systemd_module.html
+@builtin.action(name="systemd")
 @dataclass
 class Systemd(Action):
     """
