@@ -35,7 +35,7 @@ class Runner:
                 changed = "changed"
             else:
                 changed = "noop"
-            print(f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {act.name}")
+            print(f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {pending.summary}")
 
     def add_role(self, name: str, **kw):
         mod = importlib.import_module(f"roles.{name}")

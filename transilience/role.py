@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Tuple
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union
 import contextlib
 from transilience import actions
 
@@ -8,34 +8,64 @@ if TYPE_CHECKING:
 
 
 class PendingAction:
-    def __init__(self, role: "Role", action: actions.Action, notify: Optional[List["Role"]] = None):
+    def __init__(
+            self,
+            role: "Role",
+            action: actions.Action,
+            name: Optional[str] = None,
+            notify: Optional[List["Role"]] = None):
+        self._name = name
         self.role = role
         self.action = action
         if notify is None:
             notify = []
         self.notify: List[str] = notify
 
+    @property
+    def summary(self):
+        if self._name is None:
+            self._name = self.action.summary()
+        return self._name
+
+    def add(
+            self,
+            name: Optional[str] = None,
+            notify: Union[None, "Role", Sequence["Role"]] = None):
+        self._name = name
+        if notify is None:
+            pass
+        elif issubclass(notify, Role):
+            self.notify.append(notify)
+        else:
+            self.notify.extend(notify)
+        return self
+
+
+class ActionMaker:
+    def __init__(self, chain: "ChainHelper", module):
+        self.chain = chain
+        self.module = module
+
+    def __getattr__(self, name: str):
+        act_cls = getattr(self.module, name, None)
+        if act_cls is not None:
+            def make(*args, **kw):
+                act = act_cls(*args, **kw)
+                return self.chain.add(act)
+            return make
+        return super().__getattr__(name)
+
 
 class ChainHelper:
     def __init__(self, role: "Role"):
         self.role = role
         self.actions: List[actions.Action] = []
+        self.core = ActionMaker(self, actions)
 
     def add(self, act: actions.Action, **kw):
-        self.actions.append(PendingAction(self.role, act, **kw))
-
-    def notify(self, *args: Tuple[Runner]):
-        if not self.actions:
-            raise RuntimeError("notify called on an empty chain")
-        self.actions[-1].notify.extend(args)
-
-    def __iadd__(self, val: Union[actions.Action, Sequence[actions.Action]]):
-        if isinstance(val, actions.Action):
-            self.add(val)
-        else:
-            for act in val:
-                self.add(act)
-        return self
+        pa = PendingAction(self.role, act, **kw)
+        self.actions.append(pa)
+        return pa
 
 
 class Role:
