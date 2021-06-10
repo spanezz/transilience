@@ -37,6 +37,12 @@ class Command(Action):
         if not self.argv and not self.cmd:
             raise TypeError(f"{self.__class__}: one of args and cmd needs to be set")
 
+    def summary(self):
+        if self.cmd:
+            return f"Run {self.cmd!r}"
+        else:
+            return "Run " + " ".join(shlex.quote(x) for x in self.argv)
+
     def run(self, system: transilience.system.System):
         super().run(system)
 

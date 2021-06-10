@@ -30,6 +30,48 @@ class Systemd(Action):
     def __post_init__(self):
         super().__post_init__()
 
+    def summary(self):
+        summary = ""
+
+        if self.unit is not None:
+            verbs = []
+            if self.masked is not None:
+                verbs.append("mask")
+
+            if self.enabled is not None:
+                verbs.append("enable")
+
+            if self.state == "started":
+                verbs.append("start")
+            elif self.state == "stopped":
+                verbs.append("stop")
+            elif self.state == "reloaded":
+                verbs.append("reload")
+            elif self.state == "restarted":
+                verbs.append("restart")
+
+            if verbs:
+                summary = ", ".join(verbs) + " " + self.unit
+
+        verbs = []
+        if self.daemon_reload:
+            verbs.append("reload")
+        if self.daemon_reexec:
+            verbs.append("restart")
+
+        if verbs:
+            if summary:
+                summary += " and "
+            summary += " and ".join(summary, ", ".join(verbs) + " systemd")
+
+        if not summary:
+            summary += "systemd action with nothing to do"
+
+        if self.scope != "system":
+            summary += f" [{self.scope} scope]"
+
+        return summary
+
     def run(self, system: transilience.system.System):
         super().run(system)
 

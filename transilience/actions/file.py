@@ -38,6 +38,22 @@ class File(FileAction):
         if self.state in ("link", "hard") and self.src is None:
             raise ValueError(f"{self.__class__} needs src when state {self.state}")
 
+    def summary(self):
+        if self.state == "file":
+            return f"Set permissions/attributes of file {self.path!r}"
+        elif self.state == "directory":
+            return f"Setup directory {self.path!r}"
+        elif self.state == "link":
+            return f"Setup symlink {self.path!r}"
+        elif self.state == "hard":
+            return f"Setup hard link {self.path!r}"
+        elif self.state == "touch":
+            return f"Create file {self.path!r}"
+        elif self.state == "absent":
+            return f"Remove path {self.path!r}"
+        else:
+            return f"{self.__class__}: unknown state {self.state!r}"
+
     def do_file(self):
         path = self.get_path_object(self.path)
         if path is None:

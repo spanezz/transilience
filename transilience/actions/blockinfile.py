@@ -46,6 +46,9 @@ class BlockInFile(FileAction):
             if self.state is None:
                 self.state = "present"
 
+    def summary(self):
+        return f"Edit block in {self.path!r}"
+
     def edit_lines(self, lines: List[bytes]):
         # Compute markers
         marker_begin = self.marker.format(mark=self.marker_begin).encode()

@@ -38,6 +38,15 @@ class Apt(Action):
     state: str = "present"
     install_recommends: Optional[bool] = None
 
+    def summary(self):
+        if self.state == "present":
+            if len(self.pkg) == 1:
+                return f"Install package {self.pkg[0]}"
+            else:
+                return f"Install packages {', '.join(self.pkg)}"
+        else:
+            return f"{self.__class__}: unknown state {self.state!r}"
+
     def all_installed(self, pkgs: List[str]) -> bool:
         """
         Returns True if all the given packages are installed

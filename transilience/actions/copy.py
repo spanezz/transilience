@@ -57,6 +57,12 @@ class Copy(FileAction):
         else:
             raise ValueError(f"{self.__class__}: one of src and content needs to be set")
 
+    def summary(self):
+        if self.content is not None:
+            return "Replace contents of {self.dest!r}"
+        else:
+            return "Copy {self.src!r} to {self.dest!r}"
+
     def list_local_files_needed(self) -> List[str]:
         res = super().list_local_files_needed()
         if self.src is not None:
