@@ -149,7 +149,7 @@ class File(FileAction):
         path = self.get_path_object(self.path, follow=False)
         self.set_path_object_permissions(path)
 
-    def do_hardlink(self):
+    def do_hard(self):
         path = self.get_path_object(self.path, follow=False)
 
         target_po = self.get_path_object(self.src, follow=False)
