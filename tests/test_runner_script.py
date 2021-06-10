@@ -20,3 +20,10 @@ class TestScript(unittest.TestCase):
 
             with open(testfile, "rt") as fd:
                 self.assertEqual(fd.read(), test_payload)
+
+    def test_error(self):
+        script = Script()
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            with self.assertRaises(Exception):
+                script.builtin.file(state="file", path=testfile)
