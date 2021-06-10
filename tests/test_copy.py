@@ -20,7 +20,6 @@ class CopyTests(ActionTestMixin):
             self.system.share_file_prefix(workdir)
             self.run_action(
                 actions.Copy(
-                    name="Create test file",
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
@@ -47,7 +46,6 @@ class CopyTests(ActionTestMixin):
             self.system.share_file_prefix(workdir)
             self.run_action(
                 actions.Copy(
-                    name="Create test file",
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
@@ -74,7 +72,6 @@ class CopyTests(ActionTestMixin):
             self.system.share_file_prefix(workdir)
             self.run_action(
                 actions.Copy(
-                    name="Create test file",
                     src=srcfile,
                     dest=dstfile,
                     mode=0o640,
@@ -93,7 +90,6 @@ class CopyTests(ActionTestMixin):
 
             self.run_action(
                 actions.Copy(
-                    name="Create test file",
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
@@ -116,7 +112,6 @@ class CopyTests(ActionTestMixin):
 
             self.run_action(
                 actions.Copy(
-                    name="Create test file",
                     content=payload,
                     dest=dstfile,
                     mode=0o640,
@@ -143,7 +138,6 @@ class CopyTests(ActionTestMixin):
             self.system.share_file_prefix(workdir)
             self.run_action(
                 actions.Copy(
-                    name="Create test file",
                     content=payload,
                     dest=dstfile,
                     mode=0o640,

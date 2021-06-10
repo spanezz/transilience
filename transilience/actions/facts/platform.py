@@ -23,6 +23,8 @@ class Platform(Facts):
     """
     Facts from the platform module
     """
+    def summary(self):
+        return "gather platform facts"
 
     def run(self, system: transilience.system.System):
         facts = {}

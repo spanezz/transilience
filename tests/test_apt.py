@@ -9,7 +9,6 @@ class TestApt(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
     def test_install_existing(self):
         self.run_action(
             actions.Apt(
-                name="Install dbus",
                 pkg=["dbus"],
                 state="present",
             ), changed=False)
@@ -19,7 +18,6 @@ class TestApt(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
 
         self.run_action(
             actions.Apt(
-                name="Install cowsay",
                 pkg=["hello"],
                 state="present",
             ))

@@ -25,7 +25,6 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
                     fd.write(line.encode())
 
             action = actions.BlockInFile(
-                name="Edit test file",
                 path=testfile,
                 **kw
             )
@@ -47,7 +46,6 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             testfile = os.path.join(workdir, "testfile")
             act = self.run_action(
                 actions.BlockInFile(
-                    name="Create test file",
                     path=testfile,
                     mode=0o640,
                     block="test",
@@ -62,7 +60,6 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             testfile = os.path.join(workdir, "testfile")
             act = self.run_action(
                 actions.BlockInFile(
-                    name="Create test file",
                     path=testfile,
                     mode=0o640,
                     create=True,

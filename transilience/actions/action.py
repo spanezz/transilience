@@ -30,7 +30,6 @@ class Result:
 
 @dataclass
 class Action:
-    name: str
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     result: Result = field(default_factory=Result)
 
@@ -60,7 +59,7 @@ class Action:
         """
         Run the given command inside the chroot
         """
-        self.log.debug("%s: running %s", self.name, " ".join(shlex.quote(x) for x in cmd))
+        self.log.debug("running %s", " ".join(shlex.quote(x) for x in cmd))
         if "env" not in kw:
             kw["env"] = dict(os.environ)
             kw["env"]["LANG"] = "C"

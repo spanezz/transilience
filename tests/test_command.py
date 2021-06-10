@@ -8,7 +8,7 @@ from transilience import actions
 
 class TestCommand(unittest.TestCase):
     def assertRun(self, changed=True, **kwargs):
-        act = actions.Command(name="test command", **kwargs)
+        act = actions.Command(**kwargs)
         act.run(None)
         self.assertEqual(act.result.changed, changed)
         return act

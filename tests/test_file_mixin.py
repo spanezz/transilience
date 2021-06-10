@@ -28,7 +28,7 @@ class TestComputeFsPerms(FileModeMixin, unittest.TestCase):
             is_dir: bool = False,
             umask: Optional[int] = None):
         with self.umask(umask):
-            act = ComputedPermsAction(name="test", mode=mode)
+            act = ComputedPermsAction(mode=mode)
             act.run(None)
             computed = act._compute_fs_perms(orig, is_dir=is_dir)
             self.assertFileModeEqual(computed, expected)

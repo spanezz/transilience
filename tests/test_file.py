@@ -15,7 +15,7 @@ def read_umask() -> int:
 
 class FileTestMixin(FileModeMixin, ActionTestMixin):
     def run_file_action(self, changed=True, **kw):
-        return self.run_action(actions.File(name="Test action", **kw), changed=changed)
+        return self.run_action(actions.File(**kw), changed=changed)
 
 
 class TouchTests(FileTestMixin):
