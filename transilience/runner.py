@@ -31,7 +31,7 @@ class Runner:
             pending = self.pending.pop(act.uuid)
             pending.role.notify_done(act)
             if act.result.changed:
-                self.notified.update(act.notify)
+                self.notified.update(pending.notify)
                 changed = "changed"
             else:
                 changed = "noop"

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Tuple
 import contextlib
 from transilience import actions
 
@@ -8,9 +8,12 @@ if TYPE_CHECKING:
 
 
 class PendingAction:
-    def __init__(self, role: "Role", action: actions.Action):
+    def __init__(self, role: "Role", action: actions.Action, notify: Optional[List["Role"]] = None):
         self.role = role
         self.action = action
+        if notify is None:
+            notify = []
+        self.notify: List[str] = notify
 
 
 class ChainHelper:
@@ -18,8 +21,13 @@ class ChainHelper:
         self.role = role
         self.actions: List[actions.Action] = []
 
-    def add(self, act: actions.Action):
-        self.actions.append(PendingAction(self.role, act))
+    def add(self, act: actions.Action, **kw):
+        self.actions.append(PendingAction(self.role, act, **kw))
+
+    def notify(self, *args: Tuple[Runner]):
+        if not self.actions:
+            raise RuntimeError("notify called on an empty chain")
+        self.actions[-1].notify.extend(args)
 
     def __iadd__(self, val: Union[actions.Action, Sequence[actions.Action]]):
         if isinstance(val, actions.Action):
