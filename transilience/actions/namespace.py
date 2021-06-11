@@ -36,3 +36,8 @@ class Namespace:
             name = factory.__name__
             setattr(self, name, factory)
             return factory
+
+
+# Instantiate the builtin namespace right away, so that builtin modules can
+# register with it
+builtin = Namespace("builtin")

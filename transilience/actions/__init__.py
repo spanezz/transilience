@@ -1,11 +1,9 @@
 from __future__ import annotations
 from .action import Action
-from .namespace import Namespace
-from . import facts
-
-builtin = Namespace("builtin")
+from .namespace import Namespace, builtin
 
 # Import action modules so they can register with the builtin namespace
+from . import facts
 from . import file  # noqa
 from . import copy  # noqa
 from . import blockinfile  # noqa
