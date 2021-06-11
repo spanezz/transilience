@@ -39,6 +39,19 @@ system.system.run_actions([
 ])
 ```
 
+## Requirements
+
+On the local system:
+
+* Required: Python version 3.7 or later.
+* Optional: [Mitogen](https://mitogen.networkgenomics.com/) to connect to
+  remote systems; [Jinja2](https://jinja.palletsprojects.com/en/3.0.x/) for
+  ansible-like templates.
+
+On remote systems:
+
+* Python 3 (tested on 3.7)
+
 
 ## Design
 
