@@ -328,7 +328,6 @@ class Apt(Action):
             if is_plain:
                 # No wildcards are used: we can definitely check
                 if self.all_installed(packages):
-                    self.log.info("DI ALLIN")
                     return
 
         cmd = self.base_apt_command()
