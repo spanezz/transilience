@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Dict, Optional, Sequence, Generator, Any, BinaryIO
 import collections
+import threading
 import logging
 try:
     import mitogen
@@ -15,6 +16,9 @@ from ..actions import Action
 from . import System, Pipeline
 
 log = logging.getLogger(__name__)
+
+_this_system_lock = threading.Lock()
+_this_system = None
 
 
 if mitogen is None:
@@ -127,7 +131,13 @@ else:
                 context: mitogen.core.Context,
                 action: Action,
                 router: mitogen.core.Router = None) -> Dict[str, Any]:
-            system = LocalMitogen(parent_context=context, router=router)
+
+            global _this_system, _this_system_lock
+            with _this_system_lock:
+                if _this_system is None:
+                    _this_system = LocalMitogen(parent_context=context, router=router)
+                system = _this_system
+
             action = Action.deserialize(action)
             with action.result.collect():
                 action.run(system)
