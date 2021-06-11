@@ -12,5 +12,6 @@ from . import blockinfile  # noqa
 from . import apt  # noqa
 from . import command  # noqa
 from . import systemd  # noqa
+from . import user  # noqa
 
 __all__ = ["Action", "Namespace", "builtin", "facts"]

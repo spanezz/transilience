@@ -29,9 +29,6 @@ class Systemd(Action):
     masked: Optional[bool] = None
     state: Optional[str] = None
 
-    def __post_init__(self):
-        super().__post_init__()
-
     def summary(self):
         summary = ""
 

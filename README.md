@@ -96,3 +96,13 @@ for what types can be used.
 
 Set in the Hainish Cycle world from Ursula Le Guin novels, Transilience appears
 in the novels "A Fisherman of the Inland Sea", and "The Shobies' Story".
+
+
+## Copyright
+
+Transilience is licensed under the GNU General Public License v3.0 or later.
+
+See [LICENSE](LICENSE) for the full text.
+
+Backends for the `user` action are adapted from
+[Ansible](https://github.com/ansible/ansible)'s sources.

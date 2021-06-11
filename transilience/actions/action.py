@@ -5,6 +5,7 @@ import contextlib
 import subprocess
 import importlib
 import logging
+import shutil
 import shlex
 import time
 import uuid
@@ -63,6 +64,17 @@ class Action:
         Mark that this action has changed something
         """
         self.result.changed = True
+
+    def find_command(self, cmd: str) -> str:
+        """
+        Look for this command in the path, and return its full path.
+
+        Raises an exception if the command does not exist.
+        """
+        res = shutil.which(cmd)
+        if res is None:
+            raise RuntimeError(f"Command {cmd!r} not found on this system")
+        return res
 
     def run_command(self, cmd: List[str], check=True, **kw) -> subprocess.CompletedProcess:
         """
