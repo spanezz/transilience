@@ -1,6 +1,11 @@
 # Implementation adapter from Ansible's user module, which is Copyright: © 2012,
 # Stephen Fromm <sfromm@gmail.com>, and licensed under the GNU General Public
 # License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+# TODO: this module (and its platform specific specializations) still has a lot
+#       of redundant operations left over from Ansible, and it could use a good
+#       redesign
+
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Set
 from dataclasses import dataclass, field
