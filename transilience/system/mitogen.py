@@ -49,6 +49,11 @@ else:
             if not ok:
                 raise IOError(f'Transfer of {src!r} was interrupted')
 
+        def execute(self, action: actions.Action) -> actions.Action:
+            with action.result.collect():
+                action.run(self)
+            return action
+
     class MitogenPipeline(Pipeline):
         def __init__(self, system: "Mitogen"):
             self.system = system
@@ -144,6 +149,5 @@ else:
                 system = _this_system
 
             action = Action.deserialize(action)
-            with action.result.collect():
-                action.run(system)
+            action = system.execute(action)
             return action.serialize()

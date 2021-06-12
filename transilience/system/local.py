@@ -56,7 +56,8 @@ class Local(System):
         return LocalPipeline(self)
 
     def execute(self, action: actions.Action) -> actions.Action:
-        action.run(self)
+        with action.result.collect():
+            action.run(self)
         return action
 
     def receive_actions(self) -> Generator[actions.Action, None, None]:
