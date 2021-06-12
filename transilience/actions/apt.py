@@ -19,6 +19,12 @@ re_apt_results = re.compile(
         br"^(?P<upgraded>\d+) upgraded, (?P<new>\d+) newly installed,"
         br" (?P<removed>\d+) to remove and (?P<held>\d+) not upgraded.$")
 
+# Package names (both source and binary, see Package) must consist only
+# of lower case letters ("a-z"), digits ("0-9"), plus ("+") and minus
+# ("-") signs, and periods ("."). They must be at least two characters
+# long and must start with an alphanumeric character.
+re_pkg_name = re.compile(r"(?P<name>[a-z0-9][a-z0-9+.-]+)(?::(?P<arch>\w+))?(?:=(?P<ver>.+))?")
+
 
 class DpkgStatus:
     """
@@ -237,34 +243,6 @@ class Apt(Action):
             os.chmod(path, 0o0755)
             yield
 
-    def all_installed(self, pkgs: List[str]) -> bool:
-        """
-        Returns True if all the given packages are installed
-        """
-        self._dpkg_cache.update()
-        for pkg in pkgs:
-            version, status = self._dpkg_cache.status(pkg)
-            if status != "install ok installed":
-                return False
-        return True
-
-    def none_installed(self, pkgs: List[str]) -> bool:
-        """
-        Returns True if none of the given packages are installed
-        """
-        self._dpkg_cache.update()
-        if self.purge:
-            for pkg in pkgs:
-                version, status = self._dpkg_cache.status(pkg)
-                if status is not None:
-                    return False
-        else:
-            for pkg in pkgs:
-                version, status = self._dpkg_cache.status(pkg)
-                if status != "deinstall ok config-files":
-                    return False
-        return True
-
     def has_apt_changes(self, stdout: str) -> bool:
         """
         Parse apt output to see if changes were reported
@@ -386,30 +364,49 @@ class Apt(Action):
         if self.has_apt_changes(res.stdout):
             self.set_changed()
 
+    def filter_packages_to_install(self, packages: List[str]) -> List[str]:
+        """
+        Return a filtered version of packages with all packages already
+        installed
+        """
+        self._dpkg_cache.update()
+
+        filtered_packages: List[str] = []
+
+        for pkg in packages:
+            if "*" in pkg:
+                filtered_packages.append(pkg)
+                continue
+
+            mo = re_pkg_name.match(pkg)
+            if not mo:
+                raise RuntimeError(f"Invalid package name: {pkg!r}")
+
+            name = mo.group("name")
+            version = mo.group("ver") or None
+            arch = mo.group("arch") or None
+
+            dpkg_version, dpkg_status = self._dpkg_cache.status(name, arch)
+            if dpkg_version is None:
+                # Not installed
+                filtered_packages.append(pkg)
+            elif version is not None and version != dpkg_version:
+                # Installed but with a different version
+                filtered_packages.append(pkg)
+            elif dpkg_status != "install ok installed":
+                filtered_packages.append(pkg)
+
+        return filtered_packages
+
     def do_install(self, state: str, packages: List[str]):
         """
         Run apt-get install or apt-get build-dep
         """
+        if state not in ("latest", "build-dep", "fixed"):
+            packages = self.filter_packages_to_install(packages)
+
         if not packages:
             return
-
-        if state in ("latest", "build-dep", "fixed"):
-            # Always call apt-get
-            pass
-        else:
-            # Present: maybe we can check what is already present
-            # TODO: we can use DpkgStatus to check for arch if provided
-            for pkg in packages:
-                if "*" in pkg or "=" in pkg or ":" in pkg:
-                    is_plain = False
-                    break
-            else:
-                is_plain = True
-
-            if is_plain:
-                # No wildcards are used: we can definitely check
-                if self.all_installed(packages):
-                    return
 
         cmd = self.base_apt_command()
 
@@ -456,20 +453,43 @@ class Apt(Action):
             cmd = [apt_mark, "manual"] + packages
             self.run_command(cmd)
 
-    def do_remove(self, packages: List[str]):
-        # TODO: we can use DpkgStatus to check for arch if provided
+    def filter_packages_to_remove(self, packages: List[str]) -> List[str]:
+        """
+        Return a filtered version of packages with all packages already
+        removed
+        """
+        self._dpkg_cache.update()
+
+        filtered_packages: List[str] = []
+
         for pkg in packages:
-            if "*" in pkg or "=" in pkg or ":" in pkg:
-                is_plain = False
-                break
-        else:
-            is_plain = True
+            if "*" in pkg:
+                filtered_packages.append(pkg)
+                continue
 
-        if is_plain:
-            # No wildcards are used: we can definitely check
-            if self.none_installed(packages):
-                return
+            mo = re_pkg_name.match(pkg)
+            if not mo:
+                raise RuntimeError(f"Invalid package name: {pkg!r}")
 
+            name = mo.group("name")
+            # version = mo.group("ver") or None
+            arch = mo.group("arch") or None
+
+            dpkg_version, dpkg_status = self._dpkg_cache.status(name, arch)
+            if dpkg_version is None:
+                # Not installed
+                continue
+
+            if not self.purge and dpkg_status == "deinstall ok config-files":
+                # Removed, not purged, but purge was not requested
+                continue
+
+            filtered_packages.append(pkg)
+
+        return filtered_packages
+
+    def do_remove(self, packages: List[str]):
+        packages = self.filter_packages_to_remove(packages)
         if not packages:
             return
 
