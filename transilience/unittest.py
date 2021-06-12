@@ -192,6 +192,11 @@ class LocalTestMixin:
         from transilience.system import Local
         cls.system = Local()
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls.system.close()
+
     def setUp(self):
         super().setUp()
         self.system.caches = {}
@@ -214,6 +219,7 @@ class LocalMitogenTestMixin:
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
+        cls.system.close()
         cls.broker.shutdown()
 
 
@@ -241,5 +247,6 @@ class ChrootTestMixin:
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
+        cls.system.close()
         cls.broker.shutdown()
         cls.chroot.stop()

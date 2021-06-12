@@ -15,6 +15,12 @@ class System:
         self.caches: Dict[Type[Action], Any] = {}
         self.caches_lock = threading.Lock()
 
+    def close(self):
+        """
+        Close the connection to this system
+        """
+        pass
+
     def get_action_cache(self, action: Type[Action], default_factory: Callable[[], Any]):
         """
         Lookup the registered cache for this action.

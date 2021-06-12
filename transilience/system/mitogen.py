@@ -95,6 +95,9 @@ else:
 
             self.pending_actions = collections.deque()
 
+        def close(self):
+            self.context.shutdown(wait=True)
+
         def share_file(self, pathname: str):
             self.file_service.register(pathname)
 
