@@ -32,6 +32,7 @@ else:
     # FIXME: can this be somewhat added to the remote's service pool, and persist across actions?
     class LocalMitogen(System):
         def __init__(self, parent_context: mitogen.core.Context, router: mitogen.core.Router):
+            super().__init__()
             self.parent_context = parent_context
             self.router = router
 
@@ -75,6 +76,7 @@ else:
         internal_router = None
 
         def __init__(self, name: str, method: str, router: Optional[mitogen.master.Router] = None, **kw):
+            super().__init__()
             if router is None:
                 if self.internal_router is None:
                     self.internal_broker = mitogen.master.Broker()

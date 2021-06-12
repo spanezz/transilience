@@ -41,6 +41,7 @@ class Local(System):
     Work on the local system
     """
     def __init__(self):
+        super().__init__()
         self.pending_actions = collections.deque()
 
     def transfer_file(self, src: str, dst: BinaryIO, **kw):
