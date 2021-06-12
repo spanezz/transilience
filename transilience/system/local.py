@@ -19,7 +19,7 @@ class LocalPipeline(Pipeline):
         def wrapped(system: System) -> actions.Action:
             nonlocal action
             if self.failed:
-                raise RuntimeError(f"{action.name!r} failed because a previous action failed in the same chain")
+                raise RuntimeError(f"{action.summary()!r} failed because a previous action failed in the same chain")
             try:
                 with action.result.collect():
                     action.run(system)

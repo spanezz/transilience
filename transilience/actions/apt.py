@@ -46,6 +46,7 @@ class DpkgStatus:
 
         Returns (None, None) if not found, or (version, status) if found
         """
+        arches: Tuple[str, ...]
         if arch is None:
             arches = (self.arch, "all")
         else:
@@ -163,7 +164,7 @@ class Apt(Action):
         else:
             return f"{self.__class__}: unknown state {self.state!r}"
 
-    def get_cache_mtime(self) -> int:
+    def get_cache_mtime(self) -> float:
         """
         Get the modification time of the apt cache.
 
@@ -172,7 +173,7 @@ class Apt(Action):
         try:
             return os.path.getmtime("/var/cache/apt/pkgcache.bin")
         except FileNotFoundError:
-            return 0
+            return 0.0
 
     def is_cache_still_valid(self) -> bool:
         """
@@ -242,7 +243,7 @@ class Apt(Action):
             os.chmod(path, 0o0755)
             yield
 
-    def has_apt_changes(self, stdout: str) -> bool:
+    def has_apt_changes(self, stdout: bytes) -> bool:
         """
         Parse apt output to see if changes were reported
         """

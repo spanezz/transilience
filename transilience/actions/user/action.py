@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import platform
 import shlex
 from .. import builtin
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 def instantiate_user_action(*args, **kw) -> backend.User:
     system = platform.system()
     if system == "Linux":
+        distribution: Optional[str]
         try:
             with open("/etc/os-release", "rt") as fd:
                 for line in fd:

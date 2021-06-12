@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, Set, Union
+from typing import TYPE_CHECKING, Dict, Set, Union, Type, cast
 from collections import defaultdict
 import importlib
 from . import template
@@ -99,14 +99,14 @@ class Runner:
                 pending.role.close()
                 print(f"[done] {pending.role.name}")
 
-    def add_role(self, role_cls: Union[str, Role], **kw):
+    def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         if isinstance(role_cls, str):
             name = role_cls
             mod = importlib.import_module(f"roles.{role_cls}")
-            role_cls = mod.Role
+            role = mod.Role(**kw)
         else:
             name = role_cls.__name__
-        role = role_cls(**kw)
+            role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
         role.main()

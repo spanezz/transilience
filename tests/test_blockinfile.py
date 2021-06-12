@@ -33,13 +33,13 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             if expected is not None:
                 self.assertTrue(action.result.changed)
 
-                with open(testfile, "rt") as fd:
-                    self.assertEqual(fd.read(), "".join(expected))
+                with open(testfile, "rt") as infd:
+                    self.assertEqual(infd.read(), "".join(expected))
             else:
                 self.assertFalse(action.result.changed)
 
-                with open(testfile, "rt") as fd:
-                    self.assertEqual(fd.read(), "".join(orig))
+                with open(testfile, "rt") as infd:
+                    self.assertEqual(infd.read(), "".join(orig))
 
     def test_missing_noop(self):
         with tempfile.TemporaryDirectory() as workdir:

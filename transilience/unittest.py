@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Union
+from typing import Optional, Union, Dict
 import contextlib
 import subprocess
 import logging
@@ -67,7 +67,7 @@ privs.drop()
 
 
 class Chroot:
-    running_chroots = {}
+    running_chroots: Dict[str, "Chroot"] = {}
 
     def __init__(self, name: str, chroot_dir: Optional[str] = None):
         self.name = name
@@ -152,8 +152,8 @@ class FileModeMixin:
     """
     Functions useful when working with file modes
     """
-    def assertFileModeEqual(self, actual: Union[int, os.stat_result], expected: int):
-        if hasattr(actual, "st_mode"):
+    def assertFileModeEqual(self, actual: Union[None, int, os.stat_result], expected: Optional[int]):
+        if isinstance(actual, os.stat_result):
             actual = stat.S_IMODE(actual.st_mode)
         if actual == expected:
             return

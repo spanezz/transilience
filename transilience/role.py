@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type
 from transilience import actions
 
 if TYPE_CHECKING:
@@ -17,17 +17,19 @@ class PendingAction:
             role: "Role",
             action: actions.Action,
             name: Optional[str] = None,
-            notify: Union[None, "Role", Sequence["Role"]] = None,
+            notify: Union[None, Type["Role"], Sequence[Type["Role"]]] = None,
             then: Union[None, ChainedMethod, Sequence[ChainedMethod]] = None,
             ):
         self.name = name
         self.role = role
         self.action = action
 
-        self.notify: List[str]
+        self.notify: List[Type[Role]]
         if notify is None:
             self.notify = []
-        elif issubclass(notify, Role):
+        elif isinstance(notify, type):
+            if not issubclass(notify, Role):
+                raise RuntimeError("notify elements must be Role subclasses")
             self.notify = [notify]
         else:
             self.notify = list(notify)

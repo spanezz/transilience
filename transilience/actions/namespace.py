@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Callable
 
 if TYPE_CHECKING:
-    from .actions import Action
+    from .action import Action
 
 
 class Namespace:
@@ -25,7 +25,7 @@ class Namespace:
             *,
             name=None):
         if factory is None:
-            def decorator(factory: Callable[..., Action] = None):
+            def decorator(factory: Callable[..., Action]):
                 nonlocal name
                 if name is None:
                     name = factory.__name__
