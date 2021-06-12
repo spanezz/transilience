@@ -248,6 +248,23 @@ class Apt(Action):
                 return False
         return True
 
+    def none_installed(self, pkgs: List[str]) -> bool:
+        """
+        Returns True if none of the given packages are installed
+        """
+        self._dpkg_cache.update()
+        if self.purge:
+            for pkg in pkgs:
+                version, status = self._dpkg_cache.status(pkg)
+                if status is not None:
+                    return False
+        else:
+            for pkg in pkgs:
+                version, status = self._dpkg_cache.status(pkg)
+                if status != "deinstall ok config-files":
+                    return False
+        return True
+
     def has_apt_changes(self, stdout: str) -> bool:
         """
         Parse apt output to see if changes were reported
@@ -260,29 +277,6 @@ class Apt(Action):
                     int(mo.group("removed")) > 0):
                 return True
         return False
-
-    # def do_present(self):
-    #     """
-    #     Install the given package(s), if they are not installed yet
-    #     """
-    #     if self.all_installed(self.name):
-    #         return
-
-    #     cmd = ["apt-get", "-y"]
-    #     if self.default_release:
-    #         cmd += ["-t=" + self.default_release]
-    #     cmd.append("install")
-    #     if self.install_recommends is True:
-    #         cmd.append("--install-recommends")
-    #     elif self.install_recommends is False:
-    #         cmd.append("--no-install-recommends")
-    #     cmd += self.name
-
-    #     self.run_command(cmd)
-    #     self.set_changed()
-    #     # TODO: check output to see if something changed
-    #     # autoremove: "0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded."
-    #     # autoclean: "Del .+"
 
     def base_apt_command(self) -> List[str]:
         """
@@ -324,33 +318,41 @@ class Apt(Action):
         if self.has_apt_changes(res.stdout):
             self.set_changed()
 
+    def get_deb_info(self, path: str) -> Tuple[str, str, str]:
+        """
+        Return (package, version, arch) information from a .deb file
+        """
+        res = subprocess.run(["dpkg", "-I", path], capture_output=True, check=True)
+        package: Optional[str] = None
+        version: Optional[str] = None
+        arch: Optional[str] = None
+        for line in res.stdout.splitlines():
+            if line.startswith(b" Package: "):
+                package = line[10:].decode()
+            elif line.startswith(b" Version: "):
+                version = line[10:].decode()
+            elif line.startswith(b" Architecture: "):
+                arch = line[15:].decode()
+        if package is None:
+            raise RuntimeError(f"{path!r} contains no Package information")
+        if version is None:
+            raise RuntimeError(f"{path!r} contains no Version information")
+        if arch is None:
+            raise RuntimeError(f"{path!r} contains no Architecture information")
+        return package, version, arch
+
     def do_deb(self):
         """
         Run apt install with .deb files
         """
         debs = [os.path.abspath(path) for path in self.deb]
-        # for path in self.deb:
-        #     path = os.path.abspath(path)
-        #     # TODO: just parse with dpkg -I {path}
-        #     TODO: extract control file and check if already installed
-        #     pkg = apt.debfile.DebPackage(deb_file)
-        #     pkg_name = get_field_of_deb(m, deb_file, "Package")
-        #     pkg_version = get_field_of_deb(m, deb_file, "Version")
-        #     if len(apt_pkg.get_architectures()) > 1:
-        #         pkg_arch = get_field_of_deb(m, deb_file, "Architecture")
-        #         pkg_key = "%s:%s" % (pkg_name, pkg_arch)
-        #     else:
-        #         pkg_key = pkg_name
-        #     try:
-        #         installed_pkg = apt.Cache()[pkg_key]
-        #         installed_version = installed_pkg.installed.version
-        #         if package_version_compare(pkg_version, installed_version) == 0:
-        #             # Does not need to down-/upgrade, move on to next package
-        #             continue
-        #     except Exception:
-        #         # Must not be installed, continue with installation
-        #         pass
-        #     debs.append(path)
+        for path in self.deb:
+            path = os.path.abspath(path)
+            package, version, arch = self.get_deb_info(path)
+            dpkg_version, dpkg_status = self._dpkg_cache.status(package, arch)
+            if dpkg_version == version and dpkg_status == "install ok installed":
+                continue
+            debs.append(path)
 
         if not debs:
             return
@@ -396,6 +398,7 @@ class Apt(Action):
             pass
         else:
             # Present: maybe we can check what is already present
+            # TODO: we can use DpkgStatus to check for arch if provided
             for pkg in packages:
                 if "*" in pkg or "=" in pkg or ":" in pkg:
                     is_plain = False
@@ -454,6 +457,7 @@ class Apt(Action):
             self.run_command(cmd)
 
     def do_remove(self, packages: List[str]):
+        # TODO: we can use DpkgStatus to check for arch if provided
         for pkg in packages:
             if "*" in pkg or "=" in pkg or ":" in pkg:
                 is_plain = False
@@ -462,11 +466,9 @@ class Apt(Action):
             is_plain = True
 
         if is_plain:
-            ...  # TODO
-            # # No wildcards are used: we can definitely check
-            # if self.none_installed(packages):
-            #     # TODO: in none_installed, check self.purge to see if 'c' state matters
-            #     return
+            # No wildcards are used: we can definitely check
+            if self.none_installed(packages):
+                return
 
         if not packages:
             return
