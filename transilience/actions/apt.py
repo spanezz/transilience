@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional, List, Iterator
+from typing import TYPE_CHECKING, Optional, List, Iterator, Dict, Tuple, Union
 from dataclasses import dataclass, field
 import contextlib
 import subprocess
@@ -18,6 +18,88 @@ if TYPE_CHECKING:
 re_apt_results = re.compile(
         br"^(?P<upgraded>\d+) upgraded, (?P<new>\d+) newly installed,"
         br" (?P<removed>\d+) to remove and (?P<held>\d+) not upgraded.$")
+
+
+class DpkgStatus:
+    """
+    Information about the current status of packages
+    """
+    def __init__(self, path="/var/lib/dpkg/status"):
+        self.path = path
+        # Modification time of path the last time we read it
+        self.mtime: float = None
+        # Package status indexed by package (name, arch): (version, status)
+        self.packages: Dict[Tuple[str, str], Tuple[str, str]] = {}
+        # Read the default architecture for the system
+        res = subprocess.run(["dpkg", "--print-architecture"], check=True, text=True, capture_output=True)
+        self.arch = res.stdout.strip()
+
+    def status(self, package: str, arch: Optional[str] = None) -> Union[Tuple[None, None], Tuple[str, str]]:
+        """
+        Find the current status of a package.
+
+        Returns (None, None) if not found, or (version, status) if found
+        """
+        if arch is None:
+            arches = (self.arch, "all")
+        else:
+            arches = (arch,)
+        for a in arches:
+            res = self.packages.get((package, a))
+            if res is not None:
+                return res
+        return None, None
+
+    def update(self):
+        """
+        Reload the dpkg status if it has changed on disk
+        """
+        try:
+            dpkg_mtime = os.path.getmtime(self.path)
+        except FileNotFoundError:
+            self.packages = {}
+            self.mtime = None
+            return
+
+        if self.mtime is not None and dpkg_mtime < self.mtime:
+            # Cache hit
+            return
+
+        self.load_status()
+        self.mtime = dpkg_mtime
+
+    def load_status(self):
+        """
+        Parse dpkg's status file
+        """
+        # We can cut a lot of corners here, since we only need a specific
+        # subset of the file contents. Particularly, we don't need multiline
+        # fields, and we can just match field headers and paragraph breaks
+        packages = {}
+        with open(self.path, "rb") as fd:
+            package: Optional[bytes] = None
+            version: Optional[bytes] = None
+            arch: Optional[bytes] = None
+            status: Optional[bytes] = None
+            for line in fd:
+                if line == b"\n":
+                    if package is not None:
+                        packages[(package, arch)] = (version, status)
+                    package = None
+                    version = None
+                    arch = None
+                    status = None
+                elif line.startswith(b"Package: "):
+                    package = line[9:-1].decode()
+                elif line.startswith(b"Version: "):
+                    version = line[9:-1].decode()
+                elif line.startswith(b"Architecture: "):
+                    arch = line[14:-1].decode()
+                elif line.startswith(b"Status: "):
+                    status = line[8:-1].decode()
+            if package is not None:
+                packages[(package, arch)] = (version, status)
+        self.packages = packages
 
 
 # See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html
@@ -159,14 +241,10 @@ class Apt(Action):
         """
         Returns True if all the given packages are installed
         """
-        cmd = [
-            "dpkg-query", "-f", "${Status}\n", "-W"
-        ] + pkgs
-        res = subprocess.run(cmd, text=True, capture_output=True)
-        if res.returncode != 0:
-            return False
-        for line in res.stdout.splitlines():
-            if line.strip() != "install ok installed":
+        self._dpkg_cache.update()
+        for pkg in pkgs:
+            version, status = self._dpkg_cache.status(pkg)
+            if status != "install ok installed":
                 return False
         return True
 
@@ -428,6 +506,8 @@ class Apt(Action):
                 self.set_changed()
 
     def run(self, system: transilience.system.System):
+        self._dpkg_cache = system.get_action_cache(Apt, DpkgStatus)
+
         cache_updated = False
         if self.update_cache:
             if not self.is_cache_still_valid():
