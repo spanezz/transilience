@@ -190,8 +190,7 @@ class Apt(Action):
         Turn the short version dpkg options passed as arguments into options for apt
         """
         for dpkg_option in self.dpkg_options:
-            yield "-o"
-            yield f"Dpkg::Options::=--{dpkg_option}"
+            yield f"--option=Dpkg::Options::=--{dpkg_option}"
 
     @contextlib.contextmanager
     def stash(self, path: str):
@@ -256,11 +255,19 @@ class Apt(Action):
                 return True
         return False
 
+    def find_apt_get(self) -> str:
+        """
+        Return the path to apt-get.
+
+        This is in a separate function to make it easier to mock
+        """
+        return self.find_command("apt-get")
+
     def base_apt_command(self) -> List[str]:
         """
         Return a list with the common initial part of apt commands
         """
-        cmd = [self.find_command("apt-get"), "-q", "-y"]
+        cmd = [self.find_apt_get(), "-q", "-y"]
         cmd.extend(self.expand_dpkg_options())
         return cmd
 
@@ -398,6 +405,16 @@ class Apt(Action):
 
         return filtered_packages
 
+    def mark_manually_installed(self, packages: List[str]):
+        """
+        Mark the given packages as manually installed
+        """
+        apt_mark = shutil.which("apt-mark")
+        if apt_mark is None:
+            return
+        cmd = [apt_mark, "manual"] + packages
+        self.run_command(cmd)
+
     def do_install(self, state: str, packages: List[str]):
         """
         Run apt-get install or apt-get build-dep
@@ -447,11 +464,7 @@ class Apt(Action):
             if state == "build-dep":
                 return
 
-            apt_mark = shutil.which("apt-mark")
-            if apt_mark is None:
-                return
-            cmd = [apt_mark, "manual"] + packages
-            self.run_command(cmd)
+            self.mark_manually_installed(packages)
 
     def filter_packages_to_remove(self, packages: List[str]) -> List[str]:
         """
@@ -501,6 +514,8 @@ class Apt(Action):
         if self.autoremove:
             cmd.append("--auto-remove")
 
+        cmd.append("remove")
+
         cmd.extend(packages)
 
         with self.install_policy_rc_d():
@@ -533,12 +548,12 @@ class Apt(Action):
         cache_updated = False
         if self.update_cache:
             if not self.is_cache_still_valid():
-                self.run_command([self.find_command("apt-get"), "-q", "update"])
+                self.run_command([self.find_apt_get(), "-q", "update"], capture_output=True)
                 cache_updated = True
 
         # If there is nothing else to do exit. This will set state as
         # changed based on if the cache was updated.
-        if not self.name and not self.upgrade and not self.deb:
+        if not self.name and self.upgrade == "no" and not self.deb:
             if cache_updated:
                 self.set_changed()
             return

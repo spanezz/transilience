@@ -4,4 +4,6 @@ set -x -e
 
 cd $(dirname "$0")
 
-sudo nose2-3 --with-coverage --coverage-report=term --verbose
+sudo nose2-3 --with-coverage --coverage-report=html --verbose "$@"
+
+echo sensible-browser file://$(readlink -f htmlcov/index.html)

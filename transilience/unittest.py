@@ -192,6 +192,10 @@ class LocalTestMixin:
         from transilience.system import Local
         cls.system = Local()
 
+    def setUp(self):
+        super().setUp()
+        self.system.caches = {}
+
 
 class LocalMitogenTestMixin:
     """
