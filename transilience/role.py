@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type
+import uuid
 from transilience import actions
 
 if TYPE_CHECKING:
     from .runner import Runner
-    from transilience.system import Pipeline
     from transilience import template
 
 
@@ -75,10 +75,11 @@ class Role:
     and possibly enqueue some more based on their results
     """
     def __init__(self):
+        # Unique identifier for this role
+        self.uuid: str = str(uuid.uuid4())
         self.name: Optional[str] = None
         self.template_engine: template.Engine
         self.runner: "Runner"
-        self.pipeline: Pipeline
 
     def add(self, action: actions.Action, **kw):
         pa = PendingAction(self, action, **kw)
@@ -88,7 +89,6 @@ class Role:
     def set_runner(self, runner: "Runner"):
         self.runner = runner
         self.template_engine = runner.template_engine
-        self.pipeline = runner.system.create_pipeline()
 
     def notify_done(self, action: actions.Action):
         pass
@@ -97,7 +97,7 @@ class Role:
         """
         Called when the role is done executing
         """
-        self.pipeline.close()
+        pass
 
     def main(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")

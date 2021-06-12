@@ -3,6 +3,7 @@ from typing import Dict, Optional, Sequence, Generator, Any, BinaryIO
 import collections
 import threading
 import logging
+import uuid
 try:
     import mitogen
     import mitogen.core
@@ -12,8 +13,9 @@ try:
 except ModuleNotFoundError:
     mitogen = None
 from .. import actions
-from ..actions import Action
-from . import System, Pipeline
+from .system import System, PipelineInfo
+from .pipeline import LocalPipelineMixin
+from .local import LocalExecuteMixin
 
 log = logging.getLogger(__name__)
 
@@ -29,8 +31,7 @@ if mitogen is None:
 
 else:
 
-    # FIXME: can this be somewhat added to the remote's service pool, and persist across actions?
-    class LocalMitogen(System):
+    class LocalMitogen(LocalExecuteMixin, LocalPipelineMixin, System):
         def __init__(self, parent_context: mitogen.core.Context, router: mitogen.core.Router):
             super().__init__()
             self.parent_context = parent_context
@@ -48,30 +49,6 @@ else:
             )
             if not ok:
                 raise IOError(f'Transfer of {src!r} was interrupted')
-
-        def execute(self, action: actions.Action) -> actions.Action:
-            with action.result.collect():
-                action.run(self)
-            return action
-
-    class MitogenPipeline(Pipeline):
-        def __init__(self, system: "Mitogen"):
-            self.system = system
-            self.chain = mitogen.parent.CallChain(system.context, pipelined=True)
-
-        def add(self, action: Action):
-            """
-            Add an action to the execution pipeline
-            """
-            self.system.pending_actions.append(
-                self.chain.call_async(Mitogen._remote_run_actions, self.system.router.myself(), action.serialize())
-            )
-
-        def reset(self):
-            self.chain.reset()
-
-        def close(self):
-            self.chain.reset()
 
     class Mitogen(System):
         """
@@ -109,37 +86,44 @@ else:
         def share_file_prefix(self, pathname: str):
             self.file_service.register_prefix(pathname)
 
-        def create_pipeline(self) -> "Pipeline":
-            return MitogenPipeline(self)
-
         def execute(self, action: actions.Action) -> actions.Action:
             res = self.context.call(self._remote_run_actions, self.router.myself(), action.serialize())
-            return Action.deserialize(res)
+            return actions.Action.deserialize(res)
 
-        def receive_actions(self) -> Generator[actions.Action, None, None]:
+        def send_pipelined(self, action: actions.Action, pipeline: PipelineInfo):
+            """
+            Execute this action as part of a pipeline
+            """
+            serialized = action.serialize()
+            serialized["__pipeline__"] = pipeline.serialize()
+            self.pending_actions.append(
+                self.context.call_async(self._remote_run_actions, self.router.myself(), serialized)
+            )
+
+        def receive_pipelined(self) -> Generator[actions.Action, None, None]:
             """
             Receive results of the actions that have been sent so far.
 
             It is ok to enqueue new actions while this method runs
             """
             while self.pending_actions:
-                yield Action.deserialize(self.pending_actions.popleft().get().unpickle())
+                yield actions.Action.deserialize(self.pending_actions.popleft().get().unpickle())
 
         def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action, None, None]:
             """
             Run a sequence of provisioning actions in the chroot
             """
-            with self.create_pipeline() as pipe:
-                for act in action_list:
-                    pipe.add(act)
-            yield from self.receive_actions()
+            pipeline = PipelineInfo(str(uuid.uuid4()))
+            for act in action_list:
+                self.send_pipelined(act, pipeline)
+            yield from self.receive_pipelined()
 
         @classmethod
         @mitogen.core.takes_router
         def _remote_run_actions(
                 self,
                 context: mitogen.core.Context,
-                action: Action,
+                action: actions.Action,
                 router: mitogen.core.Router = None) -> Dict[str, Any]:
 
             global _this_system, _this_system_lock
@@ -148,6 +132,14 @@ else:
                     _this_system = LocalMitogen(parent_context=context, router=router)
                 system = _this_system
 
-            action = Action.deserialize(action)
-            action = system.execute(action)
+            pipeline_info = action.pop("__pipeline__", None)
+            log.info("ZAZA0 %r", pipeline_info)
+
+            action = actions.Action.deserialize(action)
+            if pipeline_info is None:
+                action = system.execute(action)
+            else:
+                log.info("ZAZA1")
+                pipeline = PipelineInfo.deserialize(pipeline_info)
+                action = system.execute_pipelined(action, pipeline)
             return action.serialize()

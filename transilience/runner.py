@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, Set, Union, Type, cast
+from typing import TYPE_CHECKING, Dict, Set, Union, Type
 from collections import defaultdict
 import importlib
 from . import template
 from .role import PendingAction
 from .system.local import Local
 from .actions import builtin
+from .system import PipelineInfo
 
 if TYPE_CHECKING:
     from .role import Role
@@ -73,10 +74,10 @@ class Runner:
         self.by_role[pa.role].add(pa.action.uuid)
 
         # File the action for execution
-        pa.role.pipeline.add(pa.action)
+        self.system.send_pipelined(pa.action, PipelineInfo(pa.role.uuid))
 
     def receive(self):
-        for act in self.system.receive_actions():
+        for act in self.system.receive_pipelined():
             # Remove from pending queues
             pending = self.pending.pop(act.uuid)
             self.by_role[pending.role].discard(act.uuid)

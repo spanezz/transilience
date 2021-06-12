@@ -1,9 +1,32 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, Dict, Any, Callable, BinaryIO
+from typing import TYPE_CHECKING, Type, Dict, Any, Callable, BinaryIO, List, Generator
+from dataclasses import dataclass, field, asdict
 import threading
 
 if TYPE_CHECKING:
     from ..actions import Action
+
+
+@dataclass
+class PipelineInfo:
+    """
+    Metadata to control the pipelined execution of an action
+    """
+    id: str
+    if_changed: List[str] = field(default_factory=list)
+
+    def serialize(self) -> Dict[str, Any]:
+        """
+        Serialize this pipeline metadata as a dict
+        """
+        return asdict(self)
+
+    @classmethod
+    def deserialize(cls, serialized: Dict[str, Any]) -> "PipelineInfo":
+        """
+        Deserialize pipeline metadata form a dict
+        """
+        return cls(**serialized)
 
 
 class System:
@@ -46,12 +69,6 @@ class System:
         """
         pass
 
-    def create_pipeline(self) -> "Pipeline":
-        """
-        Create a new action pipeline
-        """
-        raise NotImplementedError(f"{self.__class__}.create_pipeline is not implemented")
-
     def execute(self, action: Action) -> Action:
         """
         Execute an action immediately.
@@ -67,37 +84,3 @@ class System:
         file descriptor ``dst``.
         """
         raise NotImplementedError(f"{self.__class__}.transfer_file is not implemented")
-
-
-class Pipeline:
-    """
-    Abstract interface to a pipeline of actions.
-
-    If an Action in the pipeline fails, all following actions will also fail,
-    until reset() is called.
-    """
-    def add(self, action: Action):
-        """
-        Add an action to the execution pipeline
-        """
-        raise NotImplementedError(f"{self.__class__}.add is not implemented")
-
-    def reset(self):
-        """
-        Reset the error status for the pipeline.
-
-        If further actions are added, they will be executed normally
-        """
-        raise NotImplementedError(f"{self.__class__}.reset is not implemented")
-
-    def close(self):
-        """
-        Cleanup after the pipeline is done.
-        """
-        raise NotImplementedError(f"{self.__class__}.close is not implemented")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
