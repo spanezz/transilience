@@ -139,13 +139,11 @@ else:
                 system = _this_system
 
             pipeline_info = action.pop("__pipeline__", None)
-            log.info("ZAZA0 %r", pipeline_info)
 
             action = actions.Action.deserialize(action)
             if pipeline_info is None:
                 action = system.execute(action)
             else:
-                log.info("ZAZA1")
                 pipeline = PipelineInfo.deserialize(pipeline_info)
                 action = system.execute_pipelined(action, pipeline)
             return action.serialize()
