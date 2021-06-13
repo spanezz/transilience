@@ -92,3 +92,18 @@ class Runner:
         role.name = name
         role.set_runner(self)
         role.main()
+
+    def main(self):
+        """
+        Run until all roles are done
+        """
+        while True:
+            self.receive()
+
+            todo = self.notified
+            if not todo:
+                break
+
+            self.notified = set()
+            for role in todo:
+                self.add_role(role)
