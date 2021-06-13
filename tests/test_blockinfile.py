@@ -5,7 +5,7 @@ import unittest
 import stat
 import os
 from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
-from transilience.actions import builtin
+from transilience.actions import builtin, ResultState
 
 
 def read_umask() -> int:
@@ -31,12 +31,12 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             action.run(None)
 
             if expected is not None:
-                self.assertTrue(action.result.changed)
+                self.assertEqual(action.result.state, ResultState.CHANGED)
 
                 with open(testfile, "rt") as infd:
                     self.assertEqual(infd.read(), "".join(expected))
             else:
-                self.assertFalse(action.result.changed)
+                self.assertEqual(action.result.state, ResultState.NOOP)
 
                 with open(testfile, "rt") as infd:
                     self.assertEqual(infd.read(), "".join(orig))

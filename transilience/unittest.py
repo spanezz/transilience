@@ -8,6 +8,7 @@ import shlex
 import stat
 import uuid
 import os
+from .actions import ResultState
 
 log = logging.getLogger(__name__)
 
@@ -176,7 +177,10 @@ class ActionTestMixin:
         res = list(self.system.run_actions([action]))
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], action.__class__)
-        self.assertEqual(res[0].result.changed, changed)
+        if changed:
+            self.assertEqual(res[0].result.state, ResultState.CHANGED)
+        else:
+            self.assertEqual(res[0].result.state, ResultState.NOOP)
         self.assertEqual(res[0].uuid, action.uuid)
         return res[0]
 

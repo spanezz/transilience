@@ -544,6 +544,7 @@ class Apt(Action):
                 self.set_changed()
 
     def run(self, system: transilience.system.System):
+        super().run(system)
         self._dpkg_cache = system.get_action_cache(Apt, DpkgStatus)
 
         cache_updated = False

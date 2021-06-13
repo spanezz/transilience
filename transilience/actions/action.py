@@ -15,9 +15,16 @@ if TYPE_CHECKING:
     import transilience.system
 
 
+class ResultState:
+    NONE = "none"
+    NOOP = "noop"
+    CHANGED = "changed"
+    SKIPPED = "skipped"
+
+
 @dataclass
 class Result:
-    changed: bool = False
+    state: int = ResultState.NONE
     elapsed: Optional[int] = None
 
     @contextlib.contextmanager
@@ -63,7 +70,7 @@ class Action:
         """
         Mark that this action has changed something
         """
-        self.result.changed = True
+        self.result.state = ResultState.CHANGED
 
     def find_command(self, cmd: str) -> str:
         """
@@ -87,7 +94,7 @@ class Action:
         return subprocess.run(cmd, check=check, **kw)
 
     def run(self, system: transilience.system.System):
-        pass
+        self.result.state = ResultState.NOOP
 
     def serialize(self) -> Dict[str, Any]:
         """

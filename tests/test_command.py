@@ -3,14 +3,17 @@ import tempfile
 import unittest
 import shlex
 import os
-from transilience.actions import builtin
+from transilience.actions import builtin, ResultState
 
 
 class TestCommand(unittest.TestCase):
     def assertRun(self, changed=True, **kwargs):
         act = builtin.command(**kwargs)
         act.run(None)
-        self.assertEqual(act.result.changed, changed)
+        if changed:
+            self.assertEqual(act.result.state, ResultState.CHANGED)
+        else:
+            self.assertEqual(act.result.state, ResultState.NOOP)
         return act
 
     def test_basic(self):

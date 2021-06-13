@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Set
+from ..actions import ResultState
 
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ class Pipeline:
     def __init__(self, id: str):
         self.id = id
         self.failed = False
+        self.changed: Set[str] = set()
 
 
 class LocalPipelineMixin:
@@ -47,7 +49,10 @@ class LocalPipelineMixin:
             raise RuntimeError("Action aborted because a previous action failed in the same pipeline")
 
         try:
-            return self.execute(action)
+            act = self.execute(action)
+            if act.result.state == ResultState.CHANGED:
+                pipeline.changed.add(act.uuid)
+            return act
         except Exception:
             pipeline.failed = True
             raise

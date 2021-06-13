@@ -27,6 +27,7 @@ class Platform(Facts):
         return "gather platform facts"
 
     def run(self, system: transilience.system.System):
+        super().run(system)
         facts = {}
         # platform.system() can be Linux, Darwin, Java, or Windows
         facts['system'] = platform.system()
