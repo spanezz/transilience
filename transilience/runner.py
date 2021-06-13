@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Dict, Set, Union, Type
 import importlib
+import logging
+import sys
 from . import template
 from .role import PendingAction
 from .system.local import Local
@@ -10,6 +12,9 @@ if TYPE_CHECKING:
     from .role import Role
     from .actions import Namespace
     from .system import System
+
+
+log = logging.getLogger("runner")
 
 
 class NamespaceRunner:
@@ -77,7 +82,7 @@ class Runner:
                 changed = "skipped"
             else:
                 changed = "noop"
-            print(f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {pending.summary}")
+            log.info("%s", f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {pending.summary}")
 
             pending.role.on_action_executed(pending, act)
 
@@ -107,3 +112,51 @@ class Runner:
             self.notified = set()
             for role in todo:
                 self.add_role(role)
+
+    @classmethod
+    def cli(cls, main):
+        def wrapped():
+            import argparse
+            try:
+                import coloredlogs
+            except ModuleNotFoundError:
+                coloredlogs = None
+
+            parser = argparse.ArgumentParser(description="Analize nictrace logs")
+            parser.add_argument("-v", "--verbose", action="store_true",
+                                help="verbose output")
+            parser.add_argument("--debug", action="store_true",
+                                help="verbose output")
+            args = parser.parse_args()
+
+            FORMAT = "%(asctime)-15s %(levelname)s %(name)s %(message)s"
+            PROGRESS_FORMAT = "%(asctime)-15s %(message)s"
+            if args.debug:
+                log_level = logging.DEBUG
+            elif args.verbose:
+                log_level = logging.INFO
+            else:
+                log_level = logging.WARN
+
+            progress_formatter = None
+            if coloredlogs is not None:
+                coloredlogs.install(level=log_level, fmt=FORMAT, stream=sys.stderr)
+                if log_level > logging.INFO:
+                    progress_formatter = coloredlogs.ColoredFormatter(fmt=PROGRESS_FORMAT)
+            else:
+                logging.basicConfig(level=log_level, stream=sys.stderr, format=FORMAT)
+                if log_level > logging.INFO:
+                    progress_formatter = logging.Formatter(fmt=PROGRESS_FORMAT)
+
+            handler = logging.StreamHandler(stream=sys.stderr)
+            handler.setFormatter(progress_formatter)
+            log.addHandler(handler)
+            log.setLevel(logging.INFO)
+
+            # TODO: add options for specifying remote systems, and pass a
+            # system to main
+            # TODO: work on multiple systems by starting a thread per system
+            # and running main in each thread
+            main()
+
+        return wrapped

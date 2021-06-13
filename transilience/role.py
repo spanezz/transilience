@@ -116,7 +116,9 @@ class Role:
         # Mark role as done if there are no more tasks
         if not self.pending:
             self.close()
-            print(f"[done] {self.name}")
+            # TODO: move the notification to runner
+            from .runner import log
+            log.info("%s", f"[done] {self.name}")
 
     def set_runner(self, runner: "Runner"):
         self.runner = runner
