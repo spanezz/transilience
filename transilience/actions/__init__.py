@@ -4,6 +4,7 @@ from .namespace import Namespace, builtin
 
 # Import action modules so they can register with the builtin namespace
 from . import facts
+from . import misc  # noqa
 from . import file  # noqa
 from . import copy  # noqa
 from . import blockinfile  # noqa
