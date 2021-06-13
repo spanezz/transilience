@@ -1,6 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, Set
-from ..actions import ResultState
+from typing import TYPE_CHECKING, Dict
 
 
 if TYPE_CHECKING:
@@ -15,7 +14,7 @@ class Pipeline:
     def __init__(self, id: str):
         self.id = id
         self.failed = False
-        self.changed: Set[str] = set()
+        self.states: Dict[str, str] = {}
 
 
 class LocalPipelineMixin:
@@ -36,22 +35,33 @@ class LocalPipelineMixin:
             self.pipelines[pipeline_id] = res
         return res
 
-    def execute_pipelined(self, action: Action, pipeline: PipelineInfo) -> Action:
+    def execute_pipelined(self, action: Action, pipeline_info: PipelineInfo) -> Action:
         """
         Execute the action locally, returning its result immediately.
 
         It keeps pipeline metadata into account, and it can choose to skip the
         action or fail it instead of running it.
         """
-        pipeline = self.get_pipeline(pipeline.id)
+        pipeline = self.get_pipeline(pipeline_info.id)
 
+        # Skip if a previous action failed
         if pipeline.failed:
-            raise RuntimeError("Action aborted because a previous action failed in the same pipeline")
+            with action.result.collect():
+                action.run_pipeline_failed(self)
+            return action
 
+        # Check "when" conditions
+        for act_uuid, states in pipeline_info.when.items():
+            state = pipeline.states.get(act_uuid)
+            if state is None or state not in states:
+                with action.result.collect():
+                    action.run_pipeline_skipped(self, "pipeline condition not met")
+                return action
+
+        # Execute
         try:
             act = self.execute(action)
-            if act.result.state == ResultState.CHANGED:
-                pipeline.changed.add(act.uuid)
+            pipeline.states[act.uuid] = act.result.state
             return act
         except Exception:
             pipeline.failed = True

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, Dict, Any, Callable, BinaryIO, List, Generator
+from typing import TYPE_CHECKING, Type, Dict, Any, Callable, BinaryIO, List
 from dataclasses import dataclass, field, asdict
 import threading
 
@@ -13,7 +13,9 @@ class PipelineInfo:
     Metadata to control the pipelined execution of an action
     """
     id: str
-    if_changed: List[str] = field(default_factory=list)
+    # Execute only when the state of all the given actions previous executed in
+    # the same pipeline (identified by uuid) is one of those listed
+    when: Dict[str, List[str]] = field(default_factory=dict)
 
     def serialize(self) -> Dict[str, Any]:
         """
