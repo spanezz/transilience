@@ -110,10 +110,10 @@ else:
                 yield actions.Action.deserialize(self.pending_actions.popleft().get().unpickle())
 
         def pipeline_clear_failed(self, pipeline_id: str):
-            print("TODO: pipeline_clear_failed not yet implemented")
+            self.context.call_no_reply(self._pipeline_clear_failed, pipeline_id)
 
         def pipeline_close(self, pipeline_id: str):
-            print("TODO: pipeline_close not yet implemented")
+            self.context.call_no_reply(self._pipeline_close, pipeline_id)
 
         def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action, None, None]:
             """
@@ -123,6 +123,24 @@ else:
             for act in action_list:
                 self.send_pipelined(act, pipeline)
             yield from self.receive_pipelined()
+
+        @classmethod
+        def _pipeline_clear_failed(cls, pipeline_id: str):
+            global _this_system, _this_system_lock
+            with _this_system_lock:
+                if _this_system is None:
+                    return
+                system = _this_system
+            system.pipeline_clear_failed(pipeline_id)
+
+        @classmethod
+        def _pipeline_close(self, pipeline_id: str):
+            global _this_system, _this_system_lock
+            with _this_system_lock:
+                if _this_system is None:
+                    return
+                system = _this_system
+            system.pipeline_close(pipeline_id)
 
         @classmethod
         @mitogen.core.takes_router
