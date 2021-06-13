@@ -41,3 +41,18 @@ class Local(LocalExecuteMixin, LocalPipelineMixin, System):
         pipeline = PipelineInfo(str(uuid.uuid4()))
         for act in action_list:
             yield self.execute_pipelined(act, pipeline)
+
+    def send_pipelined(self, action: actions.Action, pipeline_info: PipelineInfo):
+        """
+        Execute this action as part of a pipeline
+        """
+        self.pending_actions.append((action, pipeline_info))
+
+    def receive_pipelined(self) -> Generator[actions.Action, None, None]:
+        """
+        Receive results of the actions that have been sent so far.
+
+        It is ok to enqueue new actions while this method runs
+        """
+        while self.pending_actions:
+            yield self.execute_pipelined(*self.pending_actions.popleft())

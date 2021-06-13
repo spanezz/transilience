@@ -90,12 +90,12 @@ else:
             res = self.context.call(self._remote_run_actions, self.router.myself(), action.serialize())
             return actions.Action.deserialize(res)
 
-        def send_pipelined(self, action: actions.Action, pipeline: PipelineInfo):
+        def send_pipelined(self, action: actions.Action, pipeline_info: PipelineInfo):
             """
             Execute this action as part of a pipeline
             """
             serialized = action.serialize()
-            serialized["__pipeline__"] = pipeline.serialize()
+            serialized["__pipeline__"] = pipeline_info.serialize()
             self.pending_actions.append(
                 self.context.call_async(self._remote_run_actions, self.router.myself(), serialized)
             )
