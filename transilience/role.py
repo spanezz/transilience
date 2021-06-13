@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict
 import uuid
-from transilience import actions
+from . import actions
+from .system import PipelineInfo
 
 if TYPE_CHECKING:
     from .runner import Runner
@@ -43,27 +44,14 @@ class PendingAction:
             self.then = list(then)
 
     @property
+    def uuid(self):
+        return self.action.uuid
+
+    @property
     def summary(self):
         if self.name is None:
             self.name = self.action.summary()
         return self.name
-
-
-class ActionMaker:
-    def __init__(self, role: "Role", namespace: actions.Namespace):
-        self.role = role
-        self.namespace = namespace
-
-    def __getattr__(self, name: str):
-        act_cls = getattr(self.namespace, name, None)
-        if act_cls is not None:
-            def make(*args, **kw):
-                act = act_cls(*args, **kw)
-                pa = PendingAction(self.role, act)
-                self.role._runner.add_pending_action(pa)
-                return pa
-            return make
-        raise AttributeError(name)
 
 
 class Role:
@@ -80,24 +68,65 @@ class Role:
         self.name: Optional[str] = None
         self.template_engine: template.Engine
         self.runner: "Runner"
+        self.pending: Set[str] = set()
 
-    def add(self, action: actions.Action, **kw):
+    def add(
+            self,
+            action: actions.Action,
+            when: Optional[Dict[Union[actions.Action, PendingAction], Union[str, List[str]]]] = None,
+            **kw):
+        """
+        Enqueue an action for execution
+        """
         pa = PendingAction(self, action, **kw)
+        self.pending.add(action.uuid)
         self.runner.add_pending_action(pa)
+
+        # Mark files for sharing
+        for f in action.list_local_files_needed():
+            # TODO: if it's a directory, share by prefix?
+            self.runner.system.share_file(f)
+
+        pipeline_info = PipelineInfo(self.uuid)
+
+        if when is not None:
+            pipe_when = {}
+            for a, s in when.items():
+                if isinstance(s, str):
+                    s = [s]
+                pipe_when[a.uuid] = s
+            pipeline_info.when = pipe_when
+
+        # File the action for execution
+        self.runner.system.send_pipelined(action, pipeline_info)
+
         return pa
+
+    def on_action_executed(self, pending_action: PendingAction, action: actions.Action):
+        """
+        Called by the runner when an action has been executed
+        """
+        self.pending.discard(action.uuid)
+
+        # Call chained callables, if any.
+        # This can enqueue more tasks in the role
+        for c in pending_action.then:
+            c(action)
+
+        # Mark role as done if there are no more tasks
+        if not self.pending:
+            self.close()
+            print(f"[done] {self.name}")
 
     def set_runner(self, runner: "Runner"):
         self.runner = runner
         self.template_engine = runner.template_engine
 
-    def notify_done(self, action: actions.Action):
-        pass
-
     def close(self):
         """
         Called when the role is done executing
         """
-        pass
+        self.runner.system.pipeline_close(self.uuid)
 
     def main(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")

@@ -1,12 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Dict, Set, Union, Type
-from collections import defaultdict
 import importlib
 from . import template
 from .role import PendingAction
 from .system.local import Local
-from .actions import builtin
-from .system import PipelineInfo
+from .actions import builtin, ResultState
 
 if TYPE_CHECKING:
     from .role import Role
@@ -62,43 +60,26 @@ class Runner:
         self.system = system
         self.pending: Dict[str, PendingAction] = {}
         self.notified: Set[str] = set()
-        self.by_role: Dict[Role, Set[str]] = defaultdict(set)
 
     def add_pending_action(self, pa: PendingAction):
-        for f in pa.action.list_local_files_needed():
-            # TODO: if it's a directory, share by prefix?
-            self.system.share_file(f)
-
         # Add to pending queues
         self.pending[pa.action.uuid] = pa
-        self.by_role[pa.role].add(pa.action.uuid)
-
-        # File the action for execution
-        self.system.send_pipelined(pa.action, PipelineInfo(pa.role.uuid))
 
     def receive(self):
         for act in self.system.receive_pipelined():
             # Remove from pending queues
             pending = self.pending.pop(act.uuid)
-            self.by_role[pending.role].discard(act.uuid)
 
-            if act.result.changed:
+            if act.result.state == ResultState.CHANGED:
                 self.notified.update(pending.notify)
                 changed = "changed"
+            elif act.result.state == ResultState.SKIPPED:
+                changed = "skipped"
             else:
                 changed = "noop"
             print(f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {pending.summary}")
 
-            # Call chained callables, if any.
-            # This can enqueue more tasks in the role
-            for c in pending.then:
-                c(act)
-
-            # Mark role as done if there are no more tasks
-            if not self.by_role[pending.role]:
-                del self.by_role[pending.role]
-                pending.role.close()
-                print(f"[done] {pending.role.name}")
+            pending.role.on_action_executed(pending, act)
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         if isinstance(role_cls, str):

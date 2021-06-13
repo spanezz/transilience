@@ -109,6 +109,12 @@ else:
             while self.pending_actions:
                 yield actions.Action.deserialize(self.pending_actions.popleft().get().unpickle())
 
+        def pipeline_clear_failed(self, pipeline_id: str):
+            print("TODO: pipeline_clear_failed not yet implemented")
+
+        def pipeline_close(self, pipeline_id: str):
+            print("TODO: pipeline_close not yet implemented")
+
         def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action, None, None]:
             """
             Run a sequence of provisioning actions in the chroot
