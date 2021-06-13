@@ -31,6 +31,10 @@ class TestPipeline(LocalTestMixin, unittest.TestCase):
         self.assertNoop(ResultState.SKIPPED)
         self.assertNoop(ResultState.SKIPPED)
         self.assertNoop(ResultState.SKIPPED)
+        self.system.pipeline_clear_failed(self.pipeline_id)
+        self.assertNoop(ResultState.NOOP)
+        self.assertNoop(ResultState.NOOP)
+        self.assertNoop(ResultState.NOOP)
 
     def test_when(self):
         n1 = self.assertNoop(ResultState.NOOP, changed=False)
@@ -42,3 +46,6 @@ class TestPipeline(LocalTestMixin, unittest.TestCase):
         self.assertNoop(ResultState.CHANGED, when={n3.uuid: [ResultState.SKIPPED]}, changed=True)
         self.assertNoop(ResultState.CHANGED, when={n3.uuid: [ResultState.CHANGED, ResultState.SKIPPED]}, changed=True)
         self.assertNoop(ResultState.SKIPPED, when={n3.uuid: [ResultState.NOOP, ResultState.CHANGED]}, changed=True)
+
+        self.system.pipeline_close(self.pipeline_id)
+        self.assertNoop(ResultState.SKIPPED, when={n2.uuid: [ResultState.CHANGED]}, changed=True)

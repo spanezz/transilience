@@ -35,6 +35,25 @@ class LocalPipelineMixin:
             self.pipelines[pipeline_id] = res
         return res
 
+    def pipeline_clear_failed(self, pipeline_id: str):
+        """
+        Clear the 'failed' status of a pipeline.
+
+        After this method runs, actions will start being executed again even if
+        an action previously failed
+        """
+        pipeline = self.get_pipeline(pipeline_id)
+        pipeline.failed = False
+
+    def pipeline_close(self, pipeline_id: str):
+        """
+        Dicard state about a pipeline.
+
+        Call this method to cleanup internal state when a pipeline is done
+        executing
+        """
+        self.pipelines.pop(pipeline_id, None)
+
     def execute_pipelined(self, action: Action, pipeline_info: PipelineInfo) -> Action:
         """
         Execute the action locally, returning its result immediately.
