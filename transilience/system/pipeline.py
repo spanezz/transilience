@@ -48,6 +48,7 @@ class LocalPipelineMixin:
         if pipeline.failed:
             with action.result.collect():
                 action.run_pipeline_failed(self)
+            pipeline.states[action.uuid] = action.result.state
             return action
 
         # Check "when" conditions
@@ -56,6 +57,7 @@ class LocalPipelineMixin:
             if state is None or state not in states:
                 with action.result.collect():
                     action.run_pipeline_skipped(self, "pipeline condition not met")
+                pipeline.states[action.uuid] = action.result.state
                 return action
 
         # Execute
