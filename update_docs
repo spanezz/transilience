@@ -1,0 +1,2 @@
+#!/bin/sh
+python3 -m transilience.cmd.doc -o actions_builtin.md
