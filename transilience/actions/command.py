@@ -12,15 +12,16 @@ if TYPE_CHECKING:
     import transilience.system
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/command_module.html
 @builtin.action(name="command")
 @dataclass
 class Command(Action):
     """
-    Same as ansible's builtin.command.
+    Same as Ansible's
+    [builtin.command](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/command_module.html).
 
     Not yet implemented:
-     - strip_empty_ends
+
+     * strip_empty_ends
     """
     argv: List[str] = field(default_factory=list)
     chdir: Optional[str] = None

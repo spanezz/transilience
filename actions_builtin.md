@@ -64,10 +64,12 @@ Parameters:
 
 ## command
 
-Same as ansible's builtin.command.
+Same as Ansible's
+[builtin.command](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/command_module.html).
 
 Not yet implemented:
- - strip_empty_ends
+
+ * strip_empty_ends
 
 Parameters:
 
