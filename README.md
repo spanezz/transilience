@@ -7,6 +7,9 @@ templatized YAML. Mitogen-based connections.
 
 Early stage proof of concept prototype.
 
+If you want to try playing with Transilience, see <GETTING-STARTED.md> for a
+guide on setting up a simple playbook.
+
 ## Usage
 
 ```py
