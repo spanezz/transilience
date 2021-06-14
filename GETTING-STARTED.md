@@ -27,7 +27,7 @@ def main():
     runner = Runner(system)
 
     # Add roles and start sending actions to be executed. All arguments after
-    the role name are forwarded to the Role constructor
+    # the role name are forwarded to the Role constructor
     runner.add_role("mail_aliases", aliases={
         "transilience": "enrico",
     })
