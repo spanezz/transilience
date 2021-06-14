@@ -171,3 +171,48 @@ Parameters:
 * state [`Optional[str]`] = `None`
 * unit [`Optional[str]`] = `None`
 
+## user
+
+Same as Ansible's
+[builtin.user](See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html)
+
+Parameters:
+
+* append [`bool`] = `False`
+* authorization [`Optional[str]`] = `None`
+* comment [`Optional[str]`] = `None`
+* create_home [`bool`] = `True`
+* expires [`Optional[float]`] = `None`
+* force [`bool`] = `False`
+* generate_ssh_key [`bool`] = `False`
+* group [`Optional[str]`] = `None`
+* groups [`List[str]`]
+* hidden [`Optional[bool]`] = `None`
+* home [`Optional[str]`] = `None`
+* local [`bool`] = `False`
+* login_class [`Optional[str]`] = `None`
+* move_home [`bool`] = `False`
+* name [`Optional[str]`] = `None`
+* non_unique [`bool`] = `False`
+* password [`Optional[str]`] = `None`
+* password_expire_max [`Optional[int]`] = `None`
+* password_expire_min [`Optional[int]`] = `None`
+* password_lock [`Optional[bool]`] = `None`
+* profile [`Optional[str]`] = `None`
+* remove [`bool`] = `False`
+* role [`Optional[str]`] = `None`
+* seuser [`Optional[str]`] = `None`
+* shell [`Optional[str]`] = `None`
+* skeleton [`Optional[str]`] = `None`
+* ssh_key_bits [`Optional[int]`] = `None`
+* ssh_key_comment [`Optional[str]`] = `None`
+* ssh_key_file [`Optional[str]`] = `None`
+* ssh_key_fingerprint [`Optional[str]`] = `None`
+* ssh_key_passphrase [`Optional[str]`] = `None`
+* ssh_key_pubkey [`Optional[str]`] = `None`
+* ssh_key_type [`str`] = `'rsa'`
+* state [`str`] = `'present'`
+* system [`bool`] = `False`
+* uid [`Optional[int]`] = `None`
+* update_password [`str`] = `'always'`
+

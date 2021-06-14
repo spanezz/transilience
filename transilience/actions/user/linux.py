@@ -16,96 +16,96 @@ class Alpine(backend.User):
     # implementation, except I guess, Alpine
 
     def create_user(self):
-        cmd = [self.find_command('adduser')]
+        cmd = [self.action.find_command('adduser')]
 
         cmd.append('-D')
 
-        if self.uid is not None:
+        if self.action.uid is not None:
             cmd.append('-u')
-            cmd.append(self.uid)
+            cmd.append(self.action.uid)
 
-        if self.group is not None:
-            if not self.group_exists(self.group):
-                raise RuntimeError(f"Group {self.group!r} does not exist")
+        if self.action.group is not None:
+            if not self.group_exists(self.action.group):
+                raise RuntimeError(f"Group {self.action.group!r} does not exist")
             cmd.append('-G')
-            cmd.append(self.group)
+            cmd.append(self.action.group)
 
-        if self.comment is not None:
+        if self.action.comment is not None:
             cmd.append('-g')
-            cmd.append(self.comment)
+            cmd.append(self.action.comment)
 
-        if self.home is not None:
+        if self.action.home is not None:
             cmd.append('-h')
-            cmd.append(self.home)
+            cmd.append(self.action.home)
 
-        if self.shell is not None:
+        if self.action.shell is not None:
             cmd.append('-s')
-            cmd.append(self.shell)
+            cmd.append(self.action.shell)
 
-        if not self.create_home:
+        if not self.action.create_home:
             cmd.append('-H')
 
-        if self.skeleton is not None:
+        if self.action.skeleton is not None:
             cmd.append('-k')
-            cmd.append(self.skeleton)
+            cmd.append(self.action.skeleton)
 
         # if self.umask is not None:
         #     cmd.append('-K')
         #     cmd.append('UMASK=' + self.umask)
 
-        if self.system:
+        if self.action.system:
             cmd.append('-S')
 
-        cmd.append(self.name)
+        cmd.append(self.action.name)
 
-        self.run_command(cmd)
-        self.set_changed()
+        self.action.run_command(cmd)
+        self.action.set_changed()
 
-        if self.password is not None:
-            cmd = [self.find_command("chpasswd")]
+        if self.action.password is not None:
+            cmd = [self.action.find_command("chpasswd")]
             cmd.append('--encrypted')
-            data = f'{self.name}:{self.password}'
-            self.run_command(cmd, input=data.encode())
+            data = f'{self.action.name}:{self.action.password}'
+            self.action.run_command(cmd, input=data.encode())
 
         # Add to additional groups
-        if self.groups:
-            adduser_cmd = self.find_command("adduser")
+        if self.action.groups:
+            adduser_cmd = self.action.find_command("adduser")
             for group in self.get_groups_set():
-                self.run_command([adduser_cmd, self.name, group])
+                self.action.run_command([adduser_cmd, self.action.name, group])
 
     def remove_user(self):
-        cmd = [self.find_command('deluser'), self.name]
-        if self.remove:
+        cmd = [self.action.find_command('deluser'), self.action.name]
+        if self.action.remove:
             cmd.append('--remove-home')
-        self.run_command(cmd)
-        self.set_changed()
+        self.action.run_command(cmd)
+        self.action.set_changed()
 
     def modify_user(self):
         current_groups = self.user_group_membership()
         groups = []
         info = self.user_info()
-        add_cmd_bin = self.find_command('adduser')
-        remove_cmd_bin = self.find_command('delgroup')
+        add_cmd_bin = self.action.find_command('adduser')
+        remove_cmd_bin = self.action.find_command('delgroup')
 
         # Manage group membership
-        if self.groups:
+        if self.action.groups:
             groups = self.get_groups_set()
             group_diff = current_groups.symmetric_difference(groups)
 
             if group_diff:
                 for g in groups:
                     if g in group_diff:
-                        self.run_command([add_cmd_bin, self.name, g])
-                        self.set_changed()
+                        self.action.run_command([add_cmd_bin, self.action.name, g])
+                        self.action.set_changed()
 
                 for g in group_diff:
-                    if g not in groups and not self.append:
-                        self.run_command([remove_cmd_bin, self.name, g])
-                        self.set_changed()
+                    if g not in groups and not self.action.append:
+                        self.action.run_command([remove_cmd_bin, self.action.name, g])
+                        self.action.set_changed()
 
         # Manage password
-        if self.update_password == 'always' and self.password is not None and info[1] != self.password:
-            cmd = [self.find_command('chpasswd'), '--encrypted']
-            data = f'{self.name}:{self.password}'
-            self.run_command(cmd, input=data)
-            self.set_changed()
+        if self.action.update_password == 'always' and self.action.password is not None and info[1] != self.action.password:
+            cmd = [self.action.find_command('chpasswd'), '--encrypted']
+            data = f'{self.action.name}:{self.action.password}'
+            self.action.run_command(cmd, input=data)
+            self.action.set_changed()

@@ -24,155 +24,155 @@ class User(backend.User):
 
     def _handle_lock(self):
         info = self.user_info()
-        if self.password_lock and not info.pw_passwd.startswith('*LOCKED*'):
-            cmd = [self.find_command('pw'), 'lock', self.name]
-            if self.uid is not None and info.pw_uid != self.uid:
+        if self.action.password_lock and not info.pw_passwd.startswith('*LOCKED*'):
+            cmd = [self.action.find_command('pw'), 'lock', self.action.name]
+            if self.action.uid is not None and info.pw_uid != self.action.uid:
                 cmd.append('-u')
-                cmd.append(str(self.uid))
-            self.run_command(cmd)
-            self.set_changed()
-        elif self.password_lock is False and info.pw_passwd.startswith('*LOCKED*'):
-            cmd = [self.find_command('pw'), 'unlock', self.name]
-            if self.uid is not None and info.pw_uid != self.uid:
+                cmd.append(str(self.action.uid))
+            self.action.run_command(cmd)
+            self.action.set_changed()
+        elif self.action.password_lock is False and info.pw_passwd.startswith('*LOCKED*'):
+            cmd = [self.action.find_command('pw'), 'unlock', self.action.name]
+            if self.action.uid is not None and info.pw_uid != self.action.uid:
                 cmd.append('-u')
-                cmd.append(str(self.uid))
-            self.run_command(cmd)
-            self.set_changed()
+                cmd.append(str(self.action.uid))
+            self.action.run_command(cmd)
+            self.action.set_changed()
 
     def remove_user(self):
-        cmd = [self.find_command("pw"), 'userdel', '-n', self.name]
-        if self.remove:
+        cmd = [self.action.find_command("pw"), 'userdel', '-n', self.action.name]
+        if self.action.remove:
             cmd.append('-r')
-        self.run_command(cmd)
-        self.set_changed()
+        self.action.run_command(cmd)
+        self.action.set_changed()
 
     def create_user(self):
-        cmd = [self.find_command("pw"), 'useradd', '-n', self.name]
+        cmd = [self.action.find_command("pw"), 'useradd', '-n', self.action.name]
 
-        if self.uid is not None:
+        if self.action.uid is not None:
             cmd.append('-u')
-            cmd.append(str(self.uid))
-            if self.non_unique:
+            cmd.append(str(self.action.uid))
+            if self.action.non_unique:
                 cmd.append('-o')
 
-        if self.comment is not None:
+        if self.action.comment is not None:
             cmd.append('-c')
-            cmd.append(self.comment)
+            cmd.append(self.action.comment)
 
-        if self.home is not None:
+        if self.action.home is not None:
             cmd.append('-d')
-            cmd.append(self.home)
+            cmd.append(self.action.home)
 
-        if self.group is not None:
-            if not self.group_exists(self.group):
-                raise RuntimeError(f"Group {self.group!r} does not exist")
+        if self.action.group is not None:
+            if not self.group_exists(self.action.group):
+                raise RuntimeError(f"Group {self.action.group!r} does not exist")
             cmd.append('-g')
-            cmd.append(self.group)
+            cmd.append(self.action.group)
 
-        if self.groups is not None:
+        if self.action.groups is not None:
             groups = self.get_groups_set()
             cmd.append('-G')
             cmd.append(','.join(groups))
 
-        if self.create_home:
+        if self.action.create_home:
             cmd.append('-m')
 
-            if self.skeleton is not None:
+            if self.action.skeleton is not None:
                 cmd.append('-k')
-                cmd.append(self.skeleton)
+                cmd.append(self.action.skeleton)
 
             # if self.umask is not None:
             #     cmd.append('-K')
             #     cmd.append('UMASK=' + self.umask)
 
-        if self.shell is not None:
+        if self.action.shell is not None:
             cmd.append('-s')
-            cmd.append(self.shell)
+            cmd.append(self.action.shell)
 
-        if self.login_class is not None:
+        if self.action.login_class is not None:
             cmd.append('-L')
-            cmd.append(self.login_class)
+            cmd.append(self.action.login_class)
 
-        if self.expires is not None:
+        if self.action.expires is not None:
             cmd.append('-e')
-            if self.expires < 0:
+            if self.action.expires < 0:
                 cmd.append('0')
             else:
-                cmd.append(str(self.expires))
+                cmd.append(str(self.action.expires))
 
         # system cannot be handled currently - should we error if its requested?
         # create the user
-        self.run_command(cmd)
-        self.set_changed()
+        self.action.run_command(cmd)
+        self.action.set_changed()
 
         # we have to set the password in a second command
-        if self.password is not None:
-            cmd = [self.find_command('chpass'), '-p', self.password, self.name]
-            self.run_command(cmd)
+        if self.action.password is not None:
+            cmd = [self.action.find_command('chpass'), '-p', self.action.password, self.action.name]
+            self.action.run_command(cmd)
 
         # we have to lock/unlock the password in a distinct command
         self._handle_lock()
 
     def modify_user(self):
-        cmd = [self.find_command("pw"), 'usermod', '-n', self.name]
+        cmd = [self.action.find_command("pw"), 'usermod', '-n', self.action.name]
         cmd_len = len(cmd)
         info = self.user_info()
 
-        if self.uid is not None and info.pw_uid != self.uid:
+        if self.action.uid is not None and info.pw_uid != self.action.uid:
             cmd.append('-u')
-            cmd.append(str(self.uid))
+            cmd.append(str(self.action.uid))
 
-            if self.non_unique:
+            if self.action.non_unique:
                 cmd.append('-o')
 
-        if self.comment is not None and info.pw_gecos != self.comment:
+        if self.action.comment is not None and info.pw_gecos != self.action.comment:
             cmd.append('-c')
-            cmd.append(self.comment)
+            cmd.append(self.action.comment)
 
-        if self.home is not None:
-            if (info.pw_dir != self.home and self.move_home) or (not os.path.exists(self.home) and self.create_home):
+        if self.action.home is not None:
+            if (info.pw_dir != self.action.home and self.action.move_home) or (not os.path.exists(self.action.home) and self.action.create_home):
                 cmd.append('-m')
-            if info.pw_dir != self.home:
+            if info.pw_dir != self.action.home:
                 cmd.append('-d')
-                cmd.append(self.home)
+                cmd.append(self.action.home)
 
-            if self.skeleton is not None:
+            if self.action.skeleton is not None:
                 cmd.append('-k')
-                cmd.append(self.skeleton)
+                cmd.append(self.action.skeleton)
 
             # if self.umask is not None:
             #     cmd.append('-K')
             #     cmd.append('UMASK=' + self.umask)
 
-        if self.group is not None:
-            if not self.group_exists(self.group):
-                raise RuntimeError(f"Group {self.group!r} does not exist")
-            ginfo = self.group_info(self.group)
+        if self.action.group is not None:
+            if not self.group_exists(self.action.group):
+                raise RuntimeError(f"Group {self.action.group!r} does not exist")
+            ginfo = self.action.group_info(self.action.group)
             if info.pw_gid != ginfo.gr_gid:
                 cmd.append('-g')
-                cmd.append(self.group)
+                cmd.append(self.action.group)
 
-        if self.shell is not None and info.pw_shell != self.shell:
+        if self.action.shell is not None and info.pw_shell != self.action.shell:
             cmd.append('-s')
-            cmd.append(self.shell)
+            cmd.append(self.action.shell)
 
-        if self.login_class is not None:
+        if self.action.login_class is not None:
             # find current login class
             user_login_class = None
             shadowfile = self.get_shadowfile()
             if os.path.exists(shadowfile) and os.access(shadowfile, os.R_OK):
                 with open(shadowfile, 'rt') as fd:
-                    match = self.name + ":"
+                    match = self.action.name + ":"
                     for line in fd:
                         if line.startswith(match):
                             user_login_class = line.split(':')[4]
 
             # act only if login_class change
-            if self.login_class != user_login_class:
+            if self.action.login_class != user_login_class:
                 cmd.append('-L')
-                cmd.append(self.login_class)
+                cmd.append(self.action.login_class)
 
-        if self.groups is not None:
+        if self.action.groups is not None:
             current_groups = self.user_group_membership()
             groups = self.get_groups_set()
 
@@ -180,7 +180,7 @@ class User(backend.User):
             groups_need_mod = False
 
             if group_diff:
-                if self.append:
+                if self.action.append:
                     for g in groups:
                         if g in group_diff:
                             groups_need_mod = True
@@ -191,16 +191,16 @@ class User(backend.User):
             if groups_need_mod:
                 cmd.append('-G')
                 new_groups = groups
-                if self.append:
+                if self.action.append:
                     new_groups = groups | set(current_groups)
                 cmd.append(','.join(new_groups))
 
-        if self.expires is not None:
+        if self.action.expires is not None:
             current_expires = int(self.user_password()[1])
 
             # If expiration is negative or zero and the current expiration is greater than zero, disable expiration.
             # In OpenBSD, setting expiration to zero disables expiration. It does not expire the account.
-            if self.expires <= 0:
+            if self.action.expires <= 0:
                 if current_expires > 0:
                     cmd.append('-e')
                     cmd.append('0')
@@ -209,20 +209,20 @@ class User(backend.User):
                 current_expire_date = time.gmtime(current_expires)
 
                 # Current expires is negative or we compare year, month, and day only
-                if current_expires <= 0 or current_expire_date[:3] != time.gmtime(self.expires)[:3]:
+                if current_expires <= 0 or current_expire_date[:3] != time.gmtime(self.action.expires)[:3]:
                     cmd.append('-e')
-                    cmd.append(str(self.expires))
+                    cmd.append(str(self.action.expires))
 
         # modify the user if cmd will do anything
         if cmd_len != len(cmd):
-            self.run_command(cmd)
-            self.set_changed()
+            self.action.run_command(cmd)
+            self.action.set_changed()
 
         # we have to set the password in a second command
-        if (self.update_password == 'always' and self.password is not None and
-                info.pw_passwd.lstrip('*LOCKED*') != self.password.lstrip('*LOCKED*')):
-            cmd = [self.find_command('chpass'), '-p', self.password, self.name]
-            self.run_command(cmd)
+        if (self.action.update_password == 'always' and self.action.password is not None and
+                info.pw_passwd.lstrip('*LOCKED*') != self.action.password.lstrip('*LOCKED*')):
+            cmd = [self.action.find_command('chpass'), '-p', self.action.password, self.action.name]
+            self.action.run_command(cmd)
 
         # we have to lock/unlock the password in a distinct command
         self._handle_lock()
