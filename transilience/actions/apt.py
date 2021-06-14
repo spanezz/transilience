@@ -109,19 +109,20 @@ class DpkgStatus:
         self.packages = packages
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html
 @builtin.action(name="apt")
 @dataclass
 class Apt(Action):
     """
-    Same as ansible's builtin.apt.
+    Same as Ansible's
+    [builtin.apt](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html).
 
-    force_apt_get is ignored: apt-get is always used
+    `force_apt_get` is ignored: `apt-get` is always used.
 
     Not yet implemented:
-     - force
-     - update_cache_retries
-     - update_cache_retry_max_delay
+
+     * force
+     * update_cache_retries
+     * update_cache_retry_max_delay
     """
     name: List[str] = field(default_factory=list)
     deb: List[str] = field(default_factory=list)

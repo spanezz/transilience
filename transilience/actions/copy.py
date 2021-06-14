@@ -10,23 +10,24 @@ if TYPE_CHECKING:
     import transilience.system
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html
 @builtin.action(name="copy")
 @dataclass
 class Copy(FileAction):
     """
-    Same as ansible's builtin.copy.
+    Same as Ansible's
+    [builtin.copy](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html).
 
     Not yet implemented:
-     - backup
-     - decrypt
-     - directory_mode
-     - force
-     - local_follow
-     - remote_src
-     - unsafe_writes
-     - validate
-     - src as directory
+
+     * backup
+     * decrypt
+     * directory_mode
+     * force
+     * local_follow
+     * remote_src
+     * unsafe_writes
+     * validate
+     * src as directory
     """
     dest: str = ""
     src: Optional[str] = None

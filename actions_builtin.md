@@ -5,14 +5,16 @@ Documentation of the actions provided in module `transilience.actions.builtin`.
 
 ## apt
 
-Same as ansible's builtin.apt.
+Same as Ansible's
+[builtin.apt](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html).
 
-force_apt_get is ignored: apt-get is always used
+`force_apt_get` is ignored: `apt-get` is always used.
 
 Not yet implemented:
- - force
- - update_cache_retries
- - update_cache_retry_max_delay
+
+ * force
+ * update_cache_retries
+ * update_cache_retry_max_delay
 
 Parameters:
 
@@ -36,12 +38,14 @@ Parameters:
 
 ## blockinfile
 
-Same as ansible's builtin.blockinfile.
+Same as Ansible's
+[builtin.blockinfile](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/blockinfile_module.html).
 
 Not yet implemented:
- - backup
- - unsafe_writes
- - validate
+
+ * backup
+ * unsafe_writes
+ * validate
 
 Parameters:
 
@@ -79,18 +83,20 @@ Parameters:
 
 ## copy
 
-Same as ansible's builtin.copy.
+Same as Ansible's
+[builtin.copy](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html).
 
 Not yet implemented:
- - backup
- - decrypt
- - directory_mode
- - force
- - local_follow
- - remote_src
- - unsafe_writes
- - validate
- - src as directory
+
+ * backup
+ * decrypt
+ * directory_mode
+ * force
+ * local_follow
+ * remote_src
+ * unsafe_writes
+ * validate
+ * src as directory
 
 Parameters:
 
@@ -106,6 +112,9 @@ Parameters:
 ## fail
 
 Fail with a custom message
+
+Same as Ansible's
+[builtin.fail](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/fail_module.html).
 
 Parameters:
 
@@ -137,15 +146,16 @@ Parameters:
 
 ## noop
 
-Do nothing, successfully
+Do nothing, successfully.
 
 Parameters:
 
-* changed [`bool`] = `False`
+* changed [`bool`] = `False`: Set to True to pretend the action performed changes
 
 ## systemd
 
-Same as ansible's builtin.systemd.
+Same as Ansible's
+[builtin.systemd](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/systemd_module.html)
 
 Parameters:
 

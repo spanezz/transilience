@@ -12,12 +12,12 @@ if TYPE_CHECKING:
     import transilience.system
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/systemd_module.html
 @builtin.action(name="systemd")
 @dataclass
 class Systemd(Action):
     """
-    Same as ansible's builtin.systemd.
+    Same as Ansible's
+    [builtin.systemd](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/systemd_module.html)
     """
     scope: str = "system"
     no_block: bool = False

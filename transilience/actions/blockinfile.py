@@ -9,17 +9,18 @@ if TYPE_CHECKING:
     import transilience.system
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/blockinfile_module.html
 @builtin.action(name="blockinfile")
 @dataclass
 class BlockInFile(FileAction):
     """
-    Same as ansible's builtin.blockinfile.
+    Same as Ansible's
+    [builtin.blockinfile](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/blockinfile_module.html).
 
     Not yet implemented:
-     - backup
-     - unsafe_writes
-     - validate
+
+     * backup
+     * unsafe_writes
+     * validate
     """
     path: str = ""
     block: Union[str, bytes] = ""

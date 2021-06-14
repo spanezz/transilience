@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from dataclasses import dataclass
-from .action import Action
+from .action import Action, doc
 from . import builtin
 
 if TYPE_CHECKING:
@@ -12,9 +12,9 @@ if TYPE_CHECKING:
 @dataclass
 class Noop(Action):
     """
-    Do nothing, successfully
+    Do nothing, successfully.
     """
-    changed: bool = False
+    changed: bool = doc(False, "Set to True to pretend the action performed changes")
 
     def summary(self):
         return "Do nothing"
@@ -30,6 +30,9 @@ class Noop(Action):
 class Fail(Action):
     """
     Fail with a custom message
+
+    Same as Ansible's
+    [builtin.fail](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/fail_module.html).
     """
     msg: str = "Failed as requested from task"
 

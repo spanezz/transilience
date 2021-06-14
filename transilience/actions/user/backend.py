@@ -36,24 +36,23 @@ re_pw_special_chars = re.compile(r":\*!")
 _HASH_RE = re.compile(r'[^a-zA-Z0-9./=]')
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html
 @dataclass
 class User(Action):
     """
-    Same as ansible's builtin.user.
-
-    This is a generic User manipulation class that is subclassed
-    based on platform.
-
-    A subclass may wish to override the following action methods:
-
-      - create_user()
-      - remove_user()
-      - modify_user()
-      - ssh_key_gen()
-      - get_ssh_key_fingerprint()
-      - user_exists()
+    Same as Ansible's
+    [builtin.user](See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html)
     """
+    # This is a generic User manipulation class that is subclassed
+    # based on platform.
+    #
+    # A subclass may wish to override the following action methods:
+    #
+    #  * create_user()
+    #  * remove_user()
+    #  * modify_user()
+    #  * ssh_key_gen()
+    #  * get_ssh_key_fingerprint()
+    #  * user_exists()
     name: Optional[str] = None
     state: str = "present"
     uid: Optional[int] = None
