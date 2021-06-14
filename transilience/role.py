@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict, Tuple
+import contextlib
 import uuid
 from . import actions
 from .system import PipelineInfo
@@ -17,23 +18,15 @@ class PendingAction:
             self,
             role: "Role",
             action: actions.Action,
+            notify: List[Type["Role"]],
             name: Optional[str] = None,
-            notify: Union[None, Type["Role"], Sequence[Type["Role"]]] = None,
             then: Union[None, ChainedMethod, Sequence[ChainedMethod]] = None,
             ):
         self.name = name
         self.role = role
         self.action = action
 
-        self.notify: List[Type[Role]]
-        if notify is None:
-            self.notify = []
-        elif isinstance(notify, type):
-            if not issubclass(notify, Role):
-                raise RuntimeError("notify elements must be Role subclasses")
-            self.notify = [notify]
-        else:
-            self.notify = list(notify)
+        self.notify = notify
 
         self.then: List[ChainedMethod]
         if then is None:
@@ -69,16 +62,58 @@ class Role:
         self.template_engine: template.Engine
         self.runner: "Runner"
         self.pending: Set[str] = set()
+        self.extra_when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]] = {}
+        self.extra_notify: List[Type["Role"]] = []
+
+    @contextlib.contextmanager
+    def when(self, when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]]):
+        """
+        Add the given when rules to all actions added during the duration of this context manager.
+
+        Multiple nested context managers add extra rules, and rules merge
+        """
+        orig_extra_when = self.extra_when
+        try:
+            self.extra_when = orig_extra_when.copy()
+            self.extra_when.update(when)
+            yield
+        finally:
+            self.extra_when = orig_extra_when
+
+    @contextlib.contextmanager
+    def notify(self, *args: Tuple[Type["Role"]]):
+        """
+        Add the given notify rules to all actions added during the duration of this context manager.
+
+        Multiple nested context managers add extra notify entries, and the results merge
+        """
+        orig_extra_notify = self.extra_notify
+        try:
+            self.extra_notify = list(orig_extra_notify)
+            self.extra_notify.extend(args)
+            yield
+        finally:
+            self.extra_notify = orig_extra_notify
 
     def add(
             self,
             action: actions.Action,
+            notify: Union[None, Type["Role"], Sequence[Type["Role"]]] = None,
             when: Optional[Dict[Union[actions.Action, PendingAction], Union[str, List[str]]]] = None,
             **kw):
         """
         Enqueue an action for execution
         """
-        pa = PendingAction(self, action, **kw)
+        clean_notify: List[Type[Role]] = [] + self.extra_notify
+        if notify is None:
+            pass
+        elif isinstance(notify, type):
+            if not issubclass(notify, Role):
+                raise RuntimeError("notify elements must be Role subclasses")
+            clean_notify.append(notify)
+        else:
+            clean_notify.extend(notify)
+        pa = PendingAction(self, action, notify=clean_notify, **kw)
         self.pending.add(action.uuid)
         self.runner.add_pending_action(pa)
 
@@ -91,6 +126,10 @@ class Role:
 
         if when is not None:
             pipe_when = {}
+            for a, s in self.extra_when.items():
+                if isinstance(s, str):
+                    s = [s]
+                pipe_when[a.uuid] = s
             for a, s in when.items():
                 if isinstance(s, str):
                     s = [s]
