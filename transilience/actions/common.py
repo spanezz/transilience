@@ -9,7 +9,7 @@ import pwd
 import grp
 import os
 from transilience.utils.modechange import ModeChange
-from .action import Action
+from .action import Action, doc
 
 if TYPE_CHECKING:
     import transilience.system
@@ -70,9 +70,9 @@ class PathObject:
 
 @dataclass
 class FileAction(Action):
-    owner: Union[str, int, None] = None
-    group: Union[str, int, None] = None
-    mode: Union[str, int, None] = None
+    owner: Union[str, int, None] = doc(None, "set owner, as uid or user name")
+    group: Union[str, int, None] = doc(None, "set group, as gid or group name")
+    mode: Union[str, int, None] = doc(None, "set mode, as octal or any expression `chmod` can use")
 
     # TODO: seuser
     # TODO: serole

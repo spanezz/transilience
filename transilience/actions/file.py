@@ -6,29 +6,31 @@ import shutil
 import os
 from .common import FileAction, PathObject
 from . import builtin
+from .action import doc
 
 if TYPE_CHECKING:
     import transilience.system
 
 
-# See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
 @builtin.action(name="file")
 @dataclass
 class File(FileAction):
     """
-    Same as ansible's builtin.file.
+    Same as Ansible's
+    [builtin.file](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html).
 
     Not yet implemented:
-     - access_time
-     - modification_time
-     - modification_time_format
-     - unsafe_writes
+
+     * access_time
+     * modification_time
+     * modification_time_format
+     * unsafe_writes
     """
-    path: Optional[str] = None
-    state: str = "file"
-    recurse: bool = False
-    src: Optional[str] = None
-    follow: bool = True
+    path: Optional[str] = doc(None, "Path to the file or directory being managed")
+    state: str = doc("file", "Valid: file, directory, link, hard, touch, absent")
+    recurse: bool = doc(False, "Recursively apply attributes (only used with state=directory)")
+    src: Optional[str] = doc(None, "target of the link or hard link")
+    follow: bool = doc(True, "set attributes of symlink destinations instead of the symlinks themselves")
     force: bool = False
 
     def __post_init__(self):

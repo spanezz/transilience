@@ -15,16 +15,32 @@ if TYPE_CHECKING:
     import transilience.system
 
 
+def doc(default: Any, doc: str, **kw):
+    return field(default=default, metadata={"doc": doc})
+
+
 class ResultState:
+    """
+    Enumeration of possible result states for an action
+    """
+    # No state is available yet
     NONE = "none"
+    # The action did not perform any change
     NOOP = "noop"
+    # The action performed changes in the system
     CHANGED = "changed"
+    # The action was not run, for example because a previous action failed
     SKIPPED = "skipped"
 
 
 @dataclass
 class Result:
+    """
+    Store information about the execution of an action
+    """
+    # Execution state
     state: int = ResultState.NONE
+    # Elapsed time in nanoseconds
     elapsed: Optional[int] = None
 
     @contextlib.contextmanager

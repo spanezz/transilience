@@ -122,7 +122,7 @@ class Runner:
             except ModuleNotFoundError:
                 coloredlogs = None
 
-            parser = argparse.ArgumentParser(description="Analize nictrace logs")
+            parser = argparse.ArgumentParser(description="Provision a system")
             parser.add_argument("-v", "--verbose", action="store_true",
                                 help="verbose output")
             parser.add_argument("--debug", action="store_true",

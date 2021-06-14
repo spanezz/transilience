@@ -52,6 +52,10 @@ On remote systems:
 
 * Python 3 (tested on 3.7)
 
+## Existing actions
+
+See [actions_builtin.md](actions_builtin.md).
+
 
 ## Design
 
