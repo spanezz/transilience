@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class User(Action):
     """
     Same as Ansible's
-    [builtin.user](See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html)
+    [builtin.user](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html)
     """
     name: Optional[str] = None
     state: str = "present"

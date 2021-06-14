@@ -174,7 +174,7 @@ Parameters:
 ## user
 
 Same as Ansible's
-[builtin.user](See https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html)
+[builtin.user](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html)
 
 Parameters:
 
