@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, make_dataclass, fields
 import contextlib
 import warnings
 import uuid
@@ -10,6 +10,7 @@ from .system import PipelineInfo
 if TYPE_CHECKING:
     from .runner import Runner
     from transilience import template
+    from transilience.actions.facts import Facts
 
 
 ChainedMethod = Callable[[actions.Action], None]
@@ -47,6 +48,32 @@ class PendingAction:
         if self.name is None:
             self.name = self.action.summary()
         return self.name
+
+
+def with_facts(facts: Sequence[Facts] = ()):
+    """
+    Decorate a role, adding all fields from the listed facts to it
+    """
+    # Merge all fields collected by facts
+    cls_fields = {}
+    for fact in facts:
+        for f in fields(fact):
+            if f.name in ("uuid", "result"):
+                continue
+            cls_fields[f.name] = f
+
+    def wrapper(cls):
+        # Merge in fields from the class
+        orig = dataclass(cls)
+        for f in fields(orig):
+            cls_fields[f.name] = f
+
+        return make_dataclass(
+                cls_name=cls.__name__,
+                fields=[(f.name, f.type, f) for f in cls_fields.values()],
+                bases=(cls,)
+        )
+    return wrapper
 
 
 @dataclass
