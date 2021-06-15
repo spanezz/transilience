@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict, Tuple
+from dataclasses import dataclass, field
 import contextlib
 import warnings
 import uuid
@@ -48,6 +49,7 @@ class PendingAction:
         return self.name
 
 
+@dataclass
 class Role:
     """
     A collection of related actions to perform a provisioning macro-task on a
@@ -56,15 +58,17 @@ class Role:
     The main point of a Role is to enqueue actions to be executed on a System,
     and possibly enqueue some more based on their results
     """
-    def __init__(self):
-        # Unique identifier for this role
-        self.uuid: str = str(uuid.uuid4())
-        self.name: Optional[str] = None
+    # Unique identifier for this role
+    uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # Name used to display the role
+    name: Optional[str] = None
+
+    def __post_init__(self):
         self.template_engine: template.Engine
-        self.runner: "Runner"
-        self.pending: Set[str] = set()
-        self.extra_when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]] = {}
-        self.extra_notify: List[Type["Role"]] = []
+        self._runner: "Runner"
+        self._pending: Set[str] = set()
+        self._extra_when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]] = {}
+        self._extra_notify: List[Type["Role"]] = []
 
     @contextlib.contextmanager
     def when(self, when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]]):
@@ -73,13 +77,13 @@ class Role:
 
         Multiple nested context managers add extra rules, and rules merge
         """
-        orig_extra_when = self.extra_when
+        orig_extra_when = self._extra_when
         try:
-            self.extra_when = orig_extra_when.copy()
-            self.extra_when.update(when)
+            self._extra_when = orig_extra_when.copy()
+            self._extra_when.update(when)
             yield
         finally:
-            self.extra_when = orig_extra_when
+            self._extra_when = orig_extra_when
 
     @contextlib.contextmanager
     def notify(self, *args: Tuple[Type["Role"]]):
@@ -88,13 +92,13 @@ class Role:
 
         Multiple nested context managers add extra notify entries, and the results merge
         """
-        orig_extra_notify = self.extra_notify
+        orig_extra_notify = self._extra_notify
         try:
-            self.extra_notify = list(orig_extra_notify)
-            self.extra_notify.extend(args)
+            self._extra_notify = list(orig_extra_notify)
+            self._extra_notify.extend(args)
             yield
         finally:
-            self.extra_notify = orig_extra_notify
+            self._extra_notify = orig_extra_notify
 
     def task(
             self,
@@ -105,7 +109,7 @@ class Role:
         """
         Enqueue an action for execution
         """
-        clean_notify: List[Type[Role]] = [] + self.extra_notify
+        clean_notify: List[Type[Role]] = [] + self._extra_notify
         if notify is None:
             pass
         elif isinstance(notify, type):
@@ -115,19 +119,19 @@ class Role:
         else:
             clean_notify.extend(notify)
         pa = PendingAction(self, action, notify=clean_notify, **kw)
-        self.pending.add(action.uuid)
-        self.runner.add_pending_action(pa)
+        self._pending.add(action.uuid)
+        self._runner.add_pending_action(pa)
 
         # Mark files for sharing
         for f in action.list_local_files_needed():
             # TODO: if it's a directory, share by prefix?
-            self.runner.system.share_file(f)
+            self._runner.system.share_file(f)
 
         pipeline_info = PipelineInfo(self.uuid)
 
         if when is not None:
             pipe_when = {}
-            for a, s in self.extra_when.items():
+            for a, s in self._extra_when.items():
                 if isinstance(s, str):
                     s = [s]
                 pipe_when[a.uuid] = s
@@ -138,7 +142,7 @@ class Role:
             pipeline_info.when = pipe_when
 
         # File the action for execution
-        self.runner.system.send_pipelined(action, pipeline_info)
+        self._runner.system.send_pipelined(action, pipeline_info)
 
         return pa
 
@@ -150,7 +154,7 @@ class Role:
         """
         Called by the runner when an action has been executed
         """
-        self.pending.discard(action.uuid)
+        self._pending.discard(action.uuid)
 
         # Call chained callables, if any.
         # This can enqueue more tasks in the role
@@ -158,21 +162,21 @@ class Role:
             c(action)
 
         # Mark role as done if there are no more tasks
-        if not self.pending:
+        if not self._pending:
             self.close()
             # TODO: move the notification to runner
             from .runner import log
             log.info("%s", f"[done] {self.name}")
 
     def set_runner(self, runner: "Runner"):
-        self.runner = runner
+        self._runner = runner
         self.template_engine = runner.template_engine
 
     def close(self):
         """
         Called when the role is done executing
         """
-        self.runner.system.pipeline_close(self.uuid)
+        self._runner.system.pipeline_close(self.uuid)
 
     def main(self):
         warnings.warn("Role.main() has been renamed to Role.start()", DeprecationWarning)
