@@ -64,19 +64,19 @@ class Runner:
         self.template_engine = template.Engine()
         self.system = system
         self.pending: Dict[str, PendingAction] = {}
-        self.notified: Set[str] = set()
 
     def add_pending_action(self, pa: PendingAction):
         # Add to pending queues
         self.pending[pa.action.uuid] = pa
 
-    def receive(self):
+    def receive(self) -> Set[str]:
+        notified = set()
         for act in self.system.receive_pipelined():
             # Remove from pending queues
             pending = self.pending.pop(act.uuid)
 
             if act.result.state == ResultState.CHANGED:
-                self.notified.update(pending.notify)
+                notified.update(pending.notify)
                 changed = "changed"
             elif act.result.state == ResultState.SKIPPED:
                 changed = "skipped"
@@ -85,6 +85,7 @@ class Runner:
             log.info("%s", f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {pending.summary}")
 
             pending.role.on_action_executed(pending, act)
+        return notified
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         if isinstance(role_cls, str):
@@ -103,13 +104,10 @@ class Runner:
         Run until all roles are done
         """
         while True:
-            self.receive()
-
-            todo = self.notified
+            todo = self.receive()
             if not todo:
                 break
 
-            self.notified = set()
             for role in todo:
                 self.add_role(role)
 
