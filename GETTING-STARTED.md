@@ -75,13 +75,13 @@ class Role(role.Role):
         super().__init__()
         self.aliases = aliases
 
-    def main(self):
+    def start(self):
         aliases = [
             f"{name}: {dest}"
             for name, dest in self.aliases.items()
         ]
 
-        self.add(builtin.blockinfile(
+        self.task(builtin.blockinfile(
             path="/etc/aliases",
             block="\n".join(aliases)
         ), name="configure /etc/aliases",
@@ -90,8 +90,8 @@ class Role(role.Role):
 
 
 class RereadAliases(role.Role):
-    def main(self):
-        self.add(builtin.command(argv=["newaliases"]))
+    def start(self):
+        self.task(builtin.command(argv=["newaliases"]))
 ```
 
 Finally, run the playbook:
