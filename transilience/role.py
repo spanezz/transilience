@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict, Tuple
 import contextlib
+import warnings
 import uuid
 from . import actions
 from .system import PipelineInfo
@@ -95,7 +96,7 @@ class Role:
         finally:
             self.extra_notify = orig_extra_notify
 
-    def add(
+    def task(
             self,
             action: actions.Action,
             notify: Union[None, Type["Role"], Sequence[Type["Role"]]] = None,
@@ -141,6 +142,10 @@ class Role:
 
         return pa
 
+    def add(self, *args, **kw):
+        warnings.warn("Role.add() has been renamed to Role.task()", DeprecationWarning)
+        return self.task(*args, **kw)
+
     def on_action_executed(self, pending_action: PendingAction, action: actions.Action):
         """
         Called by the runner when an action has been executed
@@ -170,4 +175,8 @@ class Role:
         self.runner.system.pipeline_close(self.uuid)
 
     def main(self):
+        warnings.warn("Role.main() has been renamed to Role.start()", DeprecationWarning)
+        return self.start()
+
+    def start(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")
