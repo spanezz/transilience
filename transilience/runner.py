@@ -96,7 +96,7 @@ class Runner:
             role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
-        role.main()
+        role.start()
 
     def main(self):
         """
