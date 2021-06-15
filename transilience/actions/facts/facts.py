@@ -9,5 +9,4 @@ class Facts(Action):
     """
     Collect facts about the system
     """
-    # Facts returned
-    facts: Optional[Dict[str, Any]] = None
+    pass

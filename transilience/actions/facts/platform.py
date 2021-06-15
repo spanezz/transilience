@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from dataclasses import dataclass
 import subprocess
 import platform
@@ -23,45 +23,59 @@ class Platform(Facts):
     """
     Facts from the platform module
     """
+    ansible_system: Optional[str] = None
+    ansible_kernel: Optional[str] = None
+    ansible_kernel: Optional[str] = None
+    ansible_kernel_version: Optional[str] = None
+    ansible_machine: Optional[str] = None
+    ansible_python_version: Optional[str] = None
+    ansible_fqdn: Optional[str] = None
+    ansible_hostname: Optional[str] = None
+    ansible_nodename: Optional[str] = None
+    ansible_domain: Optional[str] = None
+    ansible_userspace_bits: Optional[str] = None
+    ansible_architecture: Optional[str] = None
+    ansible_userspace_architecture: Optional[str] = None
+    ansible_machine_id: Optional[str] = None
+
     def summary(self):
         return "gather platform facts"
 
     def run(self, system: transilience.system.System):
         super().run(system)
-        facts = {}
         # platform.system() can be Linux, Darwin, Java, or Windows
-        facts['system'] = platform.system()
-        facts['kernel'] = platform.release()
-        facts['kernel_version'] = platform.version()
-        facts['machine'] = platform.machine()
+        self.ansible_system = platform.system()
+        self.ansible_kernel = platform.release()
+        self.ansible_kernel_version = platform.version()
+        self.ansible_machine = platform.machine()
 
-        facts['python_version'] = platform.python_version()
+        self.ansible_python_version = platform.python_version()
 
-        facts['fqdn'] = socket.getfqdn()
-        facts['hostname'] = platform.node().split('.')[0]
-        facts['nodename'] = platform.node()
+        self.ansible_fqdn = socket.getfqdn()
+        self.ansible_hostname = platform.node().split('.')[0]
+        self.ansible_nodename = platform.node()
 
-        facts['domain'] = '.'.join(facts['fqdn'].split('.')[1:])
+        self.ansible_domain = '.'.join(self.ansible_fqdn.split('.')[1:])
 
         arch_bits = platform.architecture()[0]
 
-        facts['userspace_bits'] = arch_bits.replace('bit', '')
-        if facts['machine'] == 'x86_64':
-            facts['architecture'] = facts['machine']
-            if facts['userspace_bits'] == '64':
-                facts['userspace_architecture'] = 'x86_64'
-            elif facts['userspace_bits'] == '32':
-                facts['userspace_architecture'] = 'i386'
-        elif solaris_i86_re.search(facts['machine']):
-            facts['architecture'] = 'i386'
-            if facts['userspace_bits'] == '64':
-                facts['userspace_architecture'] = 'x86_64'
-            elif facts['userspace_bits'] == '32':
-                facts['userspace_architecture'] = 'i386'
+        self.ansible_userspace_bits = arch_bits.replace('bit', '')
+        if self.ansible_machine == 'x86_64':
+            self.ansible_architecture = self.ansible_machine
+            if self.ansible_userspace_bits == '64':
+                self.ansible_userspace_architecture = 'x86_64'
+            elif self.ansible_userspace_bits == '32':
+                self.ansible_userspace_architecture = 'i386'
+        elif solaris_i86_re.search(self.ansible_machine):
+            self.ansible_architecture = 'i386'
+            if self.ansible_userspace_bits == '64':
+                self.ansible_userspace_architecture = 'x86_64'
+            elif self.ansible_userspace_bits == '32':
+                self.ansible_userspace_architecture = 'i386'
         else:
-            facts['architecture'] = facts['machine']
+            self.ansible_architecture = self.ansible_machine
 
-        if facts['system'] == 'AIX':
+        if self.ansible_system == 'AIX':
             # Attempt to use getconf to figure out architecture
             # fall back to bootinfo if needed
             getconf_bin = shutil.which('getconf')
@@ -69,16 +83,16 @@ class Platform(Facts):
                 res = subprocess.run([getconf_bin, "MACHINE_ARCHITECTURE"], capture_output=True, text=True)
                 if res.returncode == 0:
                     data = res.stdout.splitlines()
-                    facts['architecture'] = data[0]
+                    self.ansible_architecture = data[0]
             else:
                 bootinfo_bin = shutil.which('bootinfo')
                 if bootinfo_bin is not None:
                     res = subprocess.run([bootinfo_bin, '-p'], capture_output=True, text=True)
                     if res.returncode == 0:
                         data = res.stdout.splitlines()
-                        facts['architecture'] = data[0]
-        elif facts['system'] == 'OpenBSD':
-            facts['architecture'] = platform.uname()[5]
+                        self.ansible_architecture = data[0]
+        elif self.ansible_system == 'OpenBSD':
+            self.ansible_architecture = platform.uname()[5]
 
         machine_id = None
         for path in ("/var/lib/dbus/machine-id", "/etc/machine-id"):
@@ -90,6 +104,4 @@ class Platform(Facts):
                 pass
 
         if machine_id:
-            facts["machine_id"] = machine_id
-
-        self.facts = facts
+            self.ansible_machine_id = machine_id

@@ -11,8 +11,8 @@ class TestFacts(LocalTestMixin, unittest.TestCase):
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], facts_cls)
         self.assertEqual(res[0].result.state, ResultState.NOOP)
-        return res[0].facts
+        return res[0]
 
     def test_platform(self):
         res = self.load_facts(facts.Platform)
-        self.assertEqual(res["system"], platform.system())
+        self.assertEqual(res.ansible_system, platform.system())
