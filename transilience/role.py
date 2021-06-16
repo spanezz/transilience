@@ -1,53 +1,17 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Callable, Type, Set, Dict, Tuple
+from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Type, Set, Dict, Tuple
 from dataclasses import dataclass, field, make_dataclass, fields
 import contextlib
 import warnings
 import uuid
 from . import actions
 from .system import PipelineInfo
+from .runner import PendingAction
 
 if TYPE_CHECKING:
     from .runner import Runner
     from transilience import template
     from transilience.actions.facts import Facts
-
-
-ChainedMethod = Callable[[actions.Action], None]
-
-
-class PendingAction:
-    def __init__(
-            self,
-            role: "Role",
-            action: actions.Action,
-            notify: List[Type["Role"]],
-            name: Optional[str] = None,
-            then: Union[None, ChainedMethod, Sequence[ChainedMethod]] = None,
-            ):
-        self.name = name
-        self.role = role
-        self.action = action
-
-        self.notify = notify
-
-        self.then: List[ChainedMethod]
-        if then is None:
-            self.then = []
-        elif callable(then):
-            self.then = [then]
-        else:
-            self.then = list(then)
-
-    @property
-    def uuid(self):
-        return self.action.uuid
-
-    @property
-    def summary(self):
-        if self.name is None:
-            self.name = self.action.summary()
-        return self.name
 
 
 def with_facts(facts: Sequence[Facts] = ()):
@@ -71,7 +35,10 @@ def with_facts(facts: Sequence[Facts] = ()):
         return make_dataclass(
                 cls_name=cls.__name__,
                 fields=[(f.name, f.type, f) for f in cls_fields.values()],
-                bases=(cls,)
+                bases=(cls,),
+                namespace={
+                    "_facts": tuple(facts),
+                },
         )
     return wrapper
 
@@ -93,6 +60,7 @@ class Role:
     def __post_init__(self):
         self.template_engine: template.Engine
         self._runner: "Runner"
+        # UUIDs of actions sent and not received yet
         self._pending: Set[str] = set()
         self._extra_when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]] = {}
         self._extra_notify: List[Type["Role"]] = []

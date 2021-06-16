@@ -1,17 +1,19 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, Set, Union, Type
+from typing import TYPE_CHECKING, Optional, Dict, List, Set, Sequence, Union, Type, Callable
 import importlib
 import logging
 import sys
 from . import template
-from .role import PendingAction
 from .system.local import Local
 from .actions import builtin, ResultState
+from .actions.facts import Facts
+from .system import PipelineInfo
 
 if TYPE_CHECKING:
     from .role import Role
-    from .actions import Namespace
+    from .actions import Namespace, Action
     from .system import System
+    ChainedMethod = Callable[[Action], None]
 
 
 log = logging.getLogger("runner")
@@ -59,32 +61,88 @@ class Script:
         setattr(self, name, NamespaceRunner(self._system, namespace))
 
 
+class PendingAction:
+    """
+    Track an action that has been sent to an execution pipeline
+    """
+    def __init__(
+            self,
+            role: "Role",
+            action: Action,
+            notify: List[Type["Role"]],
+            name: Optional[str] = None,
+            then: Union[None, ChainedMethod, Sequence[ChainedMethod]] = None,
+            ):
+        self.name = name
+        self.roles: List[Role] = [role]
+        self.action = action
+
+        self.notify = notify
+
+        self.then: List[ChainedMethod]
+        if then is None:
+            self.then = []
+        elif callable(then):
+            self.then = [then]
+        else:
+            self.then = list(then)
+
+    @property
+    def uuid(self):
+        return self.action.uuid
+
+    @property
+    def summary(self):
+        if self.name is None:
+            self.name = self.action.summary()
+        return self.name
+
+
 class Runner:
     def __init__(self, system):
         self.template_engine = template.Engine()
         self.system = system
         self.pending: Dict[str, PendingAction] = {}
+        # Cache of facts that have already been collected
+        self.facts_cache: Dict[Type[Facts], Facts] = {}
 
     def add_pending_action(self, pa: PendingAction):
         # Add to pending queues
         self.pending[pa.action.uuid] = pa
 
-    def receive(self) -> Set[str]:
-        notified = set()
+    def receive(self) -> Set[Type[Role]]:
+        notified: Set[Type[Role]] = set()
         for act in self.system.receive_pipelined():
             # Remove from pending queues
-            pending = self.pending.pop(act.uuid)
+            pending = self.pending.pop(act.uuid, None)
+            if pending is not None:
+                if act.result.state == ResultState.CHANGED:
+                    notified.update(pending.notify)
+                    changed = "changed"
+                elif act.result.state == ResultState.SKIPPED:
+                    changed = "skipped"
+                else:
+                    changed = "noop"
 
-            if act.result.state == ResultState.CHANGED:
-                notified.update(pending.notify)
-                changed = "changed"
-            elif act.result.state == ResultState.SKIPPED:
-                changed = "skipped"
+                for role in pending.roles:
+                    log.info("%s", f"[{changed} {act.result.elapsed/1000000000:.3f}s] {role.name} {pending.summary}")
+                    role.on_action_executed(pending, act)
+
+                if isinstance(act, Facts):
+                    # If succeeded:
+                    # Add to cache
+                    self.facts_cache[act.__class__] = act
+                    for role in pending.roles:
+                        have_facts = getattr(role, "have_facts", None)
+                        # TODO: merge fact info into role members
+                        if have_facts is not None:
+                            role.have_facts(act)
+                    # TODO: call have_all_facts() on all roles that were waiting for this
+                    #       fact as the last fact still missing
+                    # TODO: if failed, enqueue a fail action to all roles that want them
             else:
-                changed = "noop"
-            log.info("%s", f"[{changed} {act.result.elapsed/1000000000:.3f}s] {pending.role.name} {pending.summary}")
+                log.error("Received unexpected action %r", act)
 
-            pending.role.on_action_executed(pending, act)
         return notified
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
@@ -97,6 +155,23 @@ class Runner:
             role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
+        for fact_cls in getattr(role, "_facts", ()):
+            if False:
+                # TODO: check facts from cache
+
+                # TODO: check if this fact gathering is already pending
+                ...
+            else:
+                # Enqueue the facts object as an action on a pipeline by itself
+                facts = fact_cls()
+                pa = PendingAction(role, facts, [])
+                role._pending.add(facts.uuid)
+                self.add_pending_action(pa)
+
+                self.system.send_pipelined(
+                        facts,
+                        PipelineInfo(id=facts.uuid),
+                )
         role.start()
 
     def main(self):
