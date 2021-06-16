@@ -1,0 +1,8 @@
+include *.md
+include LICENSE
+recursive-include tests *.py
+
+exclude make-test-chroot
+exclude run_coverage
+exclude run_type_checker
+exclude update_docs
