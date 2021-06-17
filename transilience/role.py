@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Type, Set, Dict, Tuple
-from dataclasses import dataclass, field, make_dataclass, fields
+from dataclasses import dataclass, field, make_dataclass, fields, asdict
 import contextlib
 import warnings
 import uuid
@@ -161,7 +161,12 @@ class Role:
 
         if isinstance(action, Facts):
             # If succeeded:
-            # TODO: merge fact info into role members
+
+            # Merge fact info into role members
+            for name, value in asdict(action).items():
+                if name not in ("uuid", "result"):
+                    setattr(self, name, value)
+
             have_facts = getattr(self, "have_facts", None)
             if have_facts is not None:
                 self.have_facts(action)
