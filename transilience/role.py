@@ -184,3 +184,21 @@ class Role:
 
     def start(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")
+
+    def render_file(self, path: str, **kwargs):
+        """
+        Render a Jinja2 template from a file, using as context all Role fields,
+        plus the given kwargs.
+        """
+        ctx = asdict(self)
+        ctx.update(kwargs)
+        return self.template_engine.render_file(path, ctx)
+
+    def render_string(self, template: str, **kwargs):
+        """
+        Render a Jinja2 template from a string, using as context all Role fields,
+        plus the given kwargs.
+        """
+        ctx = asdict(self)
+        ctx.update(kwargs)
+        return self.template_engine.render_string(template, ctx)
