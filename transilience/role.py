@@ -115,29 +115,23 @@ class Role:
             clean_notify.extend(notify)
         pa = PendingAction(self, action, notify=clean_notify, **kw)
         self._pending.add(action.uuid)
-        self._runner.add_pending_action(pa)
-
-        # Mark files for sharing
-        for f in action.list_local_files_needed():
-            # TODO: if it's a directory, share by prefix?
-            self._runner.system.share_file(f)
 
         pipeline_info = PipelineInfo(self.uuid)
-
-        if when is not None:
+        if when or self._extra_when:
             pipe_when = {}
             for a, s in self._extra_when.items():
                 if isinstance(s, str):
                     s = [s]
                 pipe_when[a.uuid] = s
-            for a, s in when.items():
-                if isinstance(s, str):
-                    s = [s]
-                pipe_when[a.uuid] = s
+            if when:
+                for a, s in when.items():
+                    if isinstance(s, str):
+                        s = [s]
+                    pipe_when[a.uuid] = s
             pipeline_info.when = pipe_when
 
         # File the action for execution
-        self._runner.system.send_pipelined(action, pipeline_info)
+        self._runner.add_pending_action(pa, pipeline_info)
 
         return pa
 
@@ -145,33 +139,18 @@ class Role:
         warnings.warn("Role.add() has been renamed to Role.task()", DeprecationWarning)
         return self.task(*args, **kw)
 
-    def on_action_executed(self, pending_action: PendingAction, action: actions.Action):
+    def end(self):
         """
-        Called by the runner when an action has been executed
+        Called when the role has no more tasks to send.
+
+        This method is not supposed to enqueue more tasks, only to do cleanup
+        operations
         """
-        self._pending.discard(action.uuid)
-
-        # Call chained callables, if any.
-        # This can enqueue more tasks in the role
-        for c in pending_action.then:
-            c(action)
-
-        # Mark role as done if there are no more tasks
-        if not self._pending:
-            self.close()
-            # TODO: move the notification to runner
-            from .runner import log
-            log.info("%s", f"[done] {self.name}")
+        pass
 
     def set_runner(self, runner: "Runner"):
         self._runner = runner
         self.template_engine = runner.template_engine
-
-    def close(self):
-        """
-        Called when the role is done executing
-        """
-        self._runner.system.pipeline_close(self.uuid)
 
     def main(self):
         warnings.warn("Role.main() has been renamed to Role.start()", DeprecationWarning)

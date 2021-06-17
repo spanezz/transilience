@@ -106,9 +106,16 @@ class Runner:
         # Cache of facts that have already been collected
         self.facts_cache: Dict[Type[Facts], Facts] = {}
 
-    def add_pending_action(self, pa: PendingAction):
+    def add_pending_action(self, pa: PendingAction, pipeline_info: PipelineInfo):
         # Add to pending queues
         self.pending[pa.action.uuid] = pa
+
+        # Mark files for sharing
+        for f in pa.action.list_local_files_needed():
+            # TODO: if it's a directory, share by prefix?
+            self.system.share_file(f)
+
+        self.system.send_pipelined(pa.action, pipeline_info)
 
     def receive(self) -> Set[Type[Role]]:
         notified: Set[Type[Role]] = set()
@@ -118,15 +125,7 @@ class Runner:
             if pending is not None:
                 if act.result.state == ResultState.CHANGED:
                     notified.update(pending.notify)
-                    changed = "changed"
-                elif act.result.state == ResultState.SKIPPED:
-                    changed = "skipped"
-                else:
-                    changed = "noop"
-
-                for role in pending.roles:
-                    log.info("%s", f"[{changed} {act.result.elapsed/1000000000:.3f}s] {role.name} {pending.summary}")
-                    role.on_action_executed(pending, act)
+                self._notify_action_to_roles(pending, act)
 
                 if isinstance(act, Facts):
                     # If succeeded:
@@ -145,6 +144,29 @@ class Runner:
 
         return notified
 
+    def _notify_action_to_roles(self, pending: PendingAction, action: Action):
+        if action.result.state == ResultState.CHANGED:
+            changed = "changed"
+        elif action.result.state == ResultState.SKIPPED:
+            changed = "skipped"
+        else:
+            changed = "noop"
+
+        for role in pending.roles:
+            log.info("%s", f"[{changed} {action.result.elapsed/1000000000:.3f}s] {role.name} {pending.summary}")
+            role._pending.discard(action.uuid)
+
+            # Call chained callables, if any.
+            # This can enqueue more tasks in the role
+            for c in pending.then:
+                c(action)
+
+            # Mark role as done if there are no more tasks
+            if not role._pending:
+                log.info("%s", f"[done] {role.name}")
+                self.system.pipeline_close(role.uuid)
+                role.end()
+
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         if isinstance(role_cls, str):
             name = role_cls
@@ -156,9 +178,14 @@ class Runner:
         role.name = name
         role.set_runner(self)
         for fact_cls in getattr(role, "_facts", ()):
-            if False:
-                # TODO: check facts from cache
-
+            cached = self.facts_cache.get(fact_cls)
+            if cached is not None:
+                # Simulate processing this action for this role
+                pa = PendingAction(role, cached, [])
+                role._pending.add(cached.uuid)
+                self._notify_action_to_roles(pa, cached)
+                role.have_facts(cached)
+            elif False:
                 # TODO: check if this fact gathering is already pending
                 ...
             else:
@@ -166,13 +193,9 @@ class Runner:
                 facts = fact_cls()
                 pa = PendingAction(role, facts, [])
                 role._pending.add(facts.uuid)
-                self.add_pending_action(pa)
-
-                self.system.send_pipelined(
-                        facts,
-                        PipelineInfo(id=facts.uuid),
-                )
+                self.add_pending_action(pa, PipelineInfo(id=facts.uuid))
         role.start()
+        return role
 
     def main(self):
         """
