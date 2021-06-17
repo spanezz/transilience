@@ -7,11 +7,11 @@ import uuid
 from . import actions
 from .system import PipelineInfo
 from .runner import PendingAction
+from .actions.facts import Facts
 
 if TYPE_CHECKING:
     from .runner import Runner
     from transilience import template
-    from transilience.actions.facts import Facts
 
 
 def with_facts(facts: Sequence[Facts] = ()):
@@ -147,6 +147,27 @@ class Role:
         operations
         """
         pass
+
+    def on_action(self, pending: PendingAction, action: actions.Action):
+        """
+        Called when an action comes back from the remote with its results
+        """
+        self._pending.discard(action.uuid)
+
+        # Call chained callables, if any.
+        # This can enqueue more tasks in the role
+        for c in pending.then:
+            c(action)
+
+        if isinstance(action, Facts):
+            # If succeeded:
+            # TODO: merge fact info into role members
+            have_facts = getattr(self, "have_facts", None)
+            if have_facts is not None:
+                self.have_facts(action)
+            # TODO: call have_all_facts() on all roles that were waiting for this
+            #       fact as the last fact still missing
+            # TODO: if failed, enqueue a fail action to all roles that want them
 
     def set_runner(self, runner: "Runner"):
         self._runner = runner

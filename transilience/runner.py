@@ -125,20 +125,13 @@ class Runner:
             if pending is not None:
                 if act.result.state == ResultState.CHANGED:
                     notified.update(pending.notify)
-                self._notify_action_to_roles(pending, act)
 
                 if isinstance(act, Facts):
                     # If succeeded:
                     # Add to cache
                     self.facts_cache[act.__class__] = act
-                    for role in pending.roles:
-                        have_facts = getattr(role, "have_facts", None)
-                        # TODO: merge fact info into role members
-                        if have_facts is not None:
-                            role.have_facts(act)
-                    # TODO: call have_all_facts() on all roles that were waiting for this
-                    #       fact as the last fact still missing
-                    # TODO: if failed, enqueue a fail action to all roles that want them
+
+                self._notify_action_to_roles(pending, act)
             else:
                 log.error("Received unexpected action %r", act)
 
@@ -154,12 +147,7 @@ class Runner:
 
         for role in pending.roles:
             log.info("%s", f"[{changed} {action.result.elapsed/1000000000:.3f}s] {role.name} {pending.summary}")
-            role._pending.discard(action.uuid)
-
-            # Call chained callables, if any.
-            # This can enqueue more tasks in the role
-            for c in pending.then:
-                c(action)
+            role.on_action(pending, action)
 
             # Mark role as done if there are no more tasks
             if not role._pending:
@@ -185,15 +173,20 @@ class Runner:
                 role._pending.add(cached.uuid)
                 self._notify_action_to_roles(pa, cached)
                 role.have_facts(cached)
-            elif False:
-                # TODO: check if this fact gathering is already pending
-                ...
             else:
-                # Enqueue the facts object as an action on a pipeline by itself
-                facts = fact_cls()
-                pa = PendingAction(role, facts, [])
-                role._pending.add(facts.uuid)
-                self.add_pending_action(pa, PipelineInfo(id=facts.uuid))
+                # Check if this Facts is already pending: if it is, schedule to
+                # notify this role too when it arrives
+                for pending in self.pending.values():
+                    if pending.action.__class__ == fact_cls:
+                        pending.roles.append(role)
+                        role._pending.add(pending.action.uuid)
+                        break
+                else:
+                    # Enqueue the facts object as an action on a pipeline by itself
+                    facts = fact_cls()
+                    pa = PendingAction(role, facts, [])
+                    role._pending.add(facts.uuid)
+                    self.add_pending_action(pa, PipelineInfo(id=facts.uuid))
         role.start()
         return role
 
