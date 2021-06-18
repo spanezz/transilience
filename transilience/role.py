@@ -8,6 +8,8 @@ from . import actions
 from .system import PipelineInfo
 from .runner import PendingAction
 from .actions.facts import Facts
+from .actions import ResultState
+from .actions.misc import Fail
 
 if TYPE_CHECKING:
     from .runner import Runner
@@ -154,25 +156,29 @@ class Role:
         """
         self._pending.discard(action.uuid)
 
-        # Call chained callables, if any.
-        # This can enqueue more tasks in the role
-        for c in pending.then:
-            c(action)
+        if action.result.state != ResultState.FAILED:
+            # Call chained callables, if any.
+            # This can enqueue more tasks in the role
+            for c in pending.then:
+                c(action)
 
-        if isinstance(action, Facts):
-            # If succeeded:
+            if isinstance(action, Facts):
+                # Merge fact info into role members
+                for name, value in asdict(action).items():
+                    if name not in ("uuid", "result"):
+                        setattr(self, name, value)
 
-            # Merge fact info into role members
-            for name, value in asdict(action).items():
-                if name not in ("uuid", "result"):
-                    setattr(self, name, value)
-
-            have_facts = getattr(self, "have_facts", None)
-            if have_facts is not None:
-                self.have_facts(action)
-            # TODO: call have_all_facts() on all roles that were waiting for this
-            #       fact as the last fact still missing
-            # TODO: if failed, enqueue a fail action to all roles that want them
+                have_facts = getattr(self, "have_facts", None)
+                if have_facts is not None:
+                    self.have_facts(action)
+                # TODO: call have_all_facts() on all roles that were waiting for this
+                #       fact as the last fact still missing
+        else:
+            if isinstance(action, Facts):
+                # Enqueue a Fail action to stop the pipeline
+                self._runner.add_pending_action(
+                        Fail("{pending.name!r} failed, pipeline stopped"),
+                        PipelineInfo(self.uuid))
 
     def set_runner(self, runner: "Runner"):
         self._runner = runner
