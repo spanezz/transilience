@@ -141,12 +141,10 @@ class Runner:
         return notified
 
     def _notify_action_to_roles(self, pending: PendingAction, action: Action, cached: bool = False):
-        if action.result.state == ResultState.CHANGED:
-            changed = "changed"
-        elif action.result.state == ResultState.SKIPPED:
-            changed = "skipped"
+        if action.result.state == ResultState.FAILED:
+            log_fun = log.error
         else:
-            changed = "noop"
+            log_fun = log.info
 
         for idx, role in enumerate(pending.roles):
             if cached or idx > 0:
@@ -154,8 +152,8 @@ class Runner:
             else:
                 elapsed = f"{action.result.elapsed/1000000000:.3f}s"
 
-            log.info("%s: %s", self.system.name,
-                     f"[{changed} {elapsed}] {role.name} {pending.summary}")
+            log_fun("%s: %s", self.system.name,
+                    f"[{action.result.state} {elapsed}] {role.name} {pending.summary}")
             role.on_action(pending, action)
 
             # Mark role as done if there are no more tasks
