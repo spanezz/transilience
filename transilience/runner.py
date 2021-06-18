@@ -110,6 +110,7 @@ class Runner:
         # Cache of facts that have already been collected
         self.facts_cache: Dict[Type[Facts], Facts] = {}
         self.count_by_result = Counter()
+        self.progress = logging.getLogger("progress")
 
     def add_pending_action(self, pa: PendingAction, pipeline_info: PipelineInfo):
         # Add to pending queues
@@ -146,9 +147,11 @@ class Runner:
 
     def _notify_action_to_roles(self, pending: PendingAction, action: Action, cached: bool = False):
         if action.result.state == ResultState.FAILED:
-            log_fun = log.error
+            log_fun = self.progress.error
+        elif action.result.state == ResultState.CHANGED:
+            log_fun = self.progress.warning
         else:
-            log_fun = log.info
+            log_fun = self.progress.info
 
         for idx, role in enumerate(pending.roles):
             if cached or idx > 0:
@@ -162,7 +165,7 @@ class Runner:
 
             # Mark role as done if there are no more tasks
             if not role._pending:
-                log.info("%s: %s", self.system.name, f"[done] {role.name}")
+                self.progress.info("%s: %s", self.system.name, f"[done] {role.name}")
                 self.system.pipeline_close(role.uuid)
                 role.end()
 
@@ -213,14 +216,15 @@ class Runner:
             for role in todo:
                 self.add_role(role)
 
-        log.info("%s: %d total actions: %d unchanged, %d changed, %d skipped, %d failed, %d not executed.",
-                 self.system.name,
-                 sum(self.count_by_result.values()),
-                 self.count_by_result[ResultState.NOOP],
-                 self.count_by_result[ResultState.CHANGED],
-                 self.count_by_result[ResultState.SKIPPED],
-                 self.count_by_result[ResultState.FAILED],
-                 self.count_by_result[ResultState.NONE])
+        self.progress.info(
+                "%s: %d total actions: %d unchanged, %d changed, %d skipped, %d failed, %d not executed.",
+                self.system.name,
+                sum(self.count_by_result.values()),
+                self.count_by_result[ResultState.NOOP],
+                self.count_by_result[ResultState.CHANGED],
+                self.count_by_result[ResultState.SKIPPED],
+                self.count_by_result[ResultState.FAILED],
+                self.count_by_result[ResultState.NONE])
 
     @classmethod
     def cli(cls, main):
