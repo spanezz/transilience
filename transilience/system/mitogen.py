@@ -33,7 +33,7 @@ else:
 
     class LocalMitogen(LocalExecuteMixin, LocalPipelineMixin, System):
         def __init__(self, parent_context: mitogen.core.Context, router: mitogen.core.Router):
-            super().__init__()
+            super().__init__("local_mitogen")
             self.parent_context = parent_context
             self.router = router
 
@@ -58,7 +58,7 @@ else:
         internal_router = None
 
         def __init__(self, name: str, method: str, router: Optional[mitogen.master.Router] = None, **kw):
-            super().__init__()
+            super().__init__(name)
             if router is None:
                 if self.internal_router is None:
                     self.internal_broker = mitogen.master.Broker()

@@ -133,7 +133,7 @@ class Runner:
 
                 self._notify_action_to_roles(pending, act)
             else:
-                log.error("Received unexpected action %r", act)
+                log.error("%s: Received unexpected action %r", self.system.name, act)
 
         return notified
 
@@ -146,12 +146,13 @@ class Runner:
             changed = "noop"
 
         for role in pending.roles:
-            log.info("%s", f"[{changed} {action.result.elapsed/1000000000:.3f}s] {role.name} {pending.summary}")
+            log.info("%s: %s", self.system.name,
+                     f"[{changed} {action.result.elapsed/1000000000:.3f}s] {role.name} {pending.summary}")
             role.on_action(pending, action)
 
             # Mark role as done if there are no more tasks
             if not role._pending:
-                log.info("%s", f"[done] {role.name}")
+                log.info("%s: %s", self.system.name, f"[done] {role.name}")
                 self.system.pipeline_close(role.uuid)
                 role.end()
 

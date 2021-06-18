@@ -35,7 +35,8 @@ class System:
     """
     Access a system to be provisioned
     """
-    def __init__(self):
+    def __init__(self, name: str):
+        self.name = name
         # Objects that can be registered by actions as caches
         self.caches: Dict[Type[Action], Any] = {}
         self.caches_lock = threading.Lock()

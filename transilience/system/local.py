@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Sequence, Generator, BinaryIO
+from typing import Sequence, Generator, BinaryIO, Optional
 import collections
 import shutil
 import uuid
@@ -22,8 +22,10 @@ class Local(LocalExecuteMixin, LocalPipelineMixin, System):
     """
     Work on the local system
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name: Optional[str] = None):
+        if name is None:
+            name = "local"
+        super().__init__(name)
         self.pending_actions = collections.deque()
 
     def transfer_file(self, src: str, dst: BinaryIO, **kw):

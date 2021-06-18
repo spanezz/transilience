@@ -21,8 +21,8 @@ class LocalPipelineMixin:
     """
     Common functions to execute actions locally as part of a pipeline
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
         self.pipelines: Dict[str, Pipeline] = {}
 
     def get_pipeline(self, pipeline_id: str) -> Pipeline:
