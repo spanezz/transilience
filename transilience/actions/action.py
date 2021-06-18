@@ -1,12 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Dict, Any, Optional
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, fields
 import contextlib
 import subprocess
 import traceback
 import importlib
 import logging
 import shutil
+import base64
 import shlex
 import time
 import uuid
@@ -150,16 +151,33 @@ class Action:
 
     def serialize(self) -> Dict[str, Any]:
         """
-        Serialize this action as a dict
+        Serialize this action as a dict suitable for pickling
         """
         d = asdict(self)
         d["__action__"] = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
         return d
 
+    def serialize_for_json(self) -> Dict[str, Any]:
+        """
+        Serialize this action as a dict suitable for encoding to JSON
+        """
+        binary_fields = {}
+        res = {
+            "__action__": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "__binary__": binary_fields,
+        }
+        for k, v in asdict(self).items():
+            if isinstance(v, bytes):
+                binary_fields[k] = "a85"
+                res[k] = base64.a85encode(v).decode()
+            else:
+                res[k] = v
+        return res
+
     @classmethod
     def deserialize(cls, serialized: Dict[str, Any]) -> "Action":
         """
-        Deserialize an action form a dict
+        Deserialize an Action from a dict
         """
         action_name = serialized.pop("__action__", None)
         if action_name is None:
@@ -171,6 +189,37 @@ class Action:
             raise ValueError(f"action {action_name!r} not found in transilience.actions")
         if not issubclass(action_cls, Action):
             raise ValueError(f"action {action_name!r} is not an subclass of transilience.actions.Action")
+        serialized["result"] = Result(**serialized["result"])
+        return action_cls(**serialized)
+
+    @classmethod
+    def deserialize_from_json(cls, serialized: Dict[str, Any]) -> "Action":
+        """
+        Deserialize an Action from a dict that was suitable for JSON
+        """
+        action_name = serialized.pop("__action__", None)
+        if action_name is None:
+            raise ValueError(f"action {serialized!r} has no '__action__' element")
+        mod_name, _, cls_name = action_name.rpartition(".")
+        mod = importlib.import_module(mod_name)
+        action_cls = getattr(mod, cls_name, None)
+        if action_cls is None:
+            raise ValueError(f"action {action_name!r} not found in transilience.actions")
+        if not issubclass(action_cls, Action):
+            raise ValueError(f"action {action_name!r} is not an subclass of transilience.actions.Action")
+
+        # Decode binary fields
+        binary_fields = serialized.pop("__binary__", None)
+        if binary_fields is not None:
+            for name, val in binary_fields.items():
+                if val == "a85":
+                    dec = base64.a85decode
+                elif val == "b64":
+                    dec = base64.b64decode
+                else:
+                    raise NotImplementedError(f"unknown binary encoding style: {val!r}")
+                serialized[name] = dec(serialized[name])
+
         serialized["result"] = Result(**serialized["result"])
         return action_cls(**serialized)
 

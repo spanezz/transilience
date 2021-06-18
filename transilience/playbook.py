@@ -77,11 +77,6 @@ class Playbook:
         self.args = parser.parse_args()
         self.setup_logging()
 
-        # TODO: add options for specifying remote systems, and pass a
-        # system to main
-        # TODO: work on multiple systems by starting a thread per system
-        # and running main in each thread
-
         # Start all the runners in separate threads
         threads = []
         for host in self.hosts():
