@@ -8,45 +8,54 @@ Playbooks are Python scripts. Here's the basic boilerplate:
 ```py
 #!/usr/bin/python3
 
+from dataclasses import dataclass
 import sys
-from transilience.system import Mitogen, Local
-from transilience.runner import Runner
+from transilience import Playbook, Host
+
+@dataclass
+class Server(Host):
+    # Host vars go here
+    ...
 
 
-@Runner.cli
-def main():
-    # See https://mitogen.networkgenomics.com/api.html#connection-methods
-    # "ssh" is the name of the Router method: in this case `Router.ssh()`
-    # All arguments after "ssh" are forwarded to `Router.ssh()`
-    system = Mitogen("server", "ssh", hostname="server.example.org", username="root")
+class Play(Playbook):
+    """
+    Name of this playbook
+    """
 
-    # Alternatively, you can execute on the local system, without Mitogen
-    # system = Local()
+    def hosts(self):
+        # See https://mitogen.networkgenomics.com/api.html#connection-methods
+        # "ssh" is the name of the Router method: in this case `Router.ssh()`
+        # All arguments after "ssh" are forwarded to `Router.ssh()`
+        yield Server(name="server", args={
+            "type": "Mitogen",
+            "method": "ssh",
+            "hostname": "server.example.org",
+            "username": "root",
+        })
+        # Alternatively, you can execute on the local system, without Mitogen
+        # yield Server(name="local", type="Local")
 
-    # Instantiate a pipelined runner sending actions to this system
-    runner = Runner(system)
+    def start(self, runner):
 
-    # Add roles and start sending actions to be executed. All arguments after
-    # the role name are forwarded to the Role constructor
-    runner.add_role("mail_aliases", aliases={
-        "transilience": "enrico",
-    })
-
-    # Run until all roles are done
-    runner.main()
+        # Add roles and start sending actions to be executed. All arguments after
+        # the role name are forwarded to the Role constructor
+        runner.add_role("mail_aliases", aliases={
+            "transilience": "enrico",
+        })
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(VPS().main())
 ```
 
-`@Runner.cli` adds a basic command line interface:
+The `Playbook` class adds a basic command line interface:
 
 ```
 $ ./provision  --help
 usage: provision [-h] [-v] [--debug]
 
-Provision a system
+Name of this playbook
 
 optional arguments:
   -h, --help     show this help message and exit
@@ -65,30 +74,31 @@ $ edit roles/mail_aliases.py
 ```py
 from __future__ import annotations
 from typing import Dict
+from dataclasses import dataclass, field
 from transilience import role
 from transilience.actions import builtin
-from .handlers import RereadAliases
 
 
+@dataclass
 class Role(role.Role):
-    def __init__(self, aliases=Dict[str, str]):
-        super().__init__()
-        self.aliases = aliases
+    # Role-level variables
+    aliases: Dict[str, str] = field(default_factory=dict)
 
     def start(self):
-        aliases = [
-            f"{name}: {dest}"
-            for name, dest in self.aliases.items()
-        ]
+        # Role-level variables are automatically exported to templates
+        aliases = self.render_string("""{% for name, dest in aliases.items() %}
+{{name}}: {{dest}}
+{% endfor %}""")[
 
         self.task(builtin.blockinfile(
             path="/etc/aliases",
-            block="\n".join(aliases)
+            block=aliases,
         ), name="configure /etc/aliases",
            notify=RereadAliases,
         )
 
 
+@dataclass
 class RereadAliases(role.Role):
     def start(self):
         self.task(builtin.command(argv=["newaliases"]))
@@ -98,6 +108,7 @@ Finally, run the playbook:
 
 ```
 $ ./provision
-2021-06-14 18:23:16 [changed 0.003s] mail_aliases configure /etc/aliases
-2021-06-14 18:23:17 [changed 0.203s] RereadAliases Run newaliases
+2021-06-14 18:23:16 server: [changed 0.003s] mail_aliases configure /etc/aliases
+2021-06-14 18:23:17 server: [changed 0.203s] RereadAliases Run newaliases
+2021-06-18 15:57:53 server: 2 total actions: 0 unchanged, 2 changed, 0 skipped, 0 failed, 0 not executed.
 ```
