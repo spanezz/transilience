@@ -16,30 +16,33 @@ if TYPE_CHECKING:
     from transilience import template
 
 
-def with_facts(facts: Sequence[Facts] = ()):
+def with_facts(facts: Union[Facts, Sequence[Facts]] = ()):
     """
     Decorate a role, adding all fields from the listed facts to it
     """
+    if isinstance(facts, type):
+        facts = [facts]
+
     # Merge all fields collected by facts
-    cls_fields = {}
+    facts_fields = {}
     for fact in facts:
         for f in fields(fact):
             if f.name in ("uuid", "result"):
                 continue
-            cls_fields[f.name] = f
+            facts_fields[f.name] = f
 
     def wrapper(cls):
         # Merge in fields from the class
         orig = dataclass(cls)
         for f in fields(orig):
-            cls_fields[f.name] = f
+            facts_fields[f.name] = f
 
         return make_dataclass(
                 cls_name=cls.__name__,
-                fields=[(f.name, f.type, f) for f in cls_fields.values()],
+                fields=[(f.name, f.type, f) for f in facts_fields.values()],
                 bases=(cls,),
                 namespace={
-                    "_facts": tuple(facts),
+                    "_facts": getattr(cls, "_facts", ()) + tuple(facts),
                 },
         )
     return wrapper
