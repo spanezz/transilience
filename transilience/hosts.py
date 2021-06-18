@@ -10,6 +10,11 @@ if TYPE_CHECKING:
 
 @dataclass
 class Host:
+    """
+    A host to be provisioned.
+
+    Hosts can be grouped by using a common plain dataclass as a mixin.
+    """
     name: str
     type: str = "Mitogen"
     args: Dict[str, Any] = field(default_factory=dict)

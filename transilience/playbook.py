@@ -85,8 +85,7 @@ class Playbook:
         # Start all the runners in separate threads
         threads = []
         for host in self.hosts():
-            system = host._make_system()
-            runner = Runner(system)
+            runner = Runner(host)
             self.start(runner)
             t = threading.Thread(target=runner.main)
             threads.append(t)

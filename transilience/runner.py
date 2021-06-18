@@ -1,7 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Dict, List, Set, Sequence, Union, Type, Callable
 from collections import Counter
+from dataclasses import fields
 import importlib
+import warnings
 import logging
 import sys
 from . import template
@@ -9,6 +11,7 @@ from .system.local import Local
 from .actions import builtin, ResultState
 from .actions.facts import Facts
 from .system import PipelineInfo
+from .hosts import Host
 
 if TYPE_CHECKING:
     from .role import Role
@@ -103,9 +106,15 @@ class PendingAction:
 
 
 class Runner:
-    def __init__(self, system):
+    def __init__(self, host: Union[Host, System]):
         self.template_engine = template.Engine()
-        self.system = system
+        if isinstance(host, Host):
+            self.host = host
+            self.system = host._make_system()
+        else:
+            warnings.warn("Use a Host instead of a System to instantiate Runner", DeprecationWarning)
+            self.host = None
+            self.system = host
         self.pending: Dict[str, PendingAction] = {}
         # Cache of facts that have already been collected
         self.facts_cache: Dict[Type[Facts], Facts] = {}
@@ -173,10 +182,20 @@ class Runner:
         if isinstance(role_cls, str):
             name = role_cls
             mod = importlib.import_module(f"roles.{role_cls}")
-            role = mod.Role(**kw)
+            role_cls = mod.Role
         else:
             name = role_cls.__name__
-            role = role_cls(**kw)
+
+        # TODO: remove this `if` once Role accepts only Host: then we can do
+        #       the merging all the time
+        if self.host is not None:
+            # Add host/group variables to role constructor args
+            host_fields = {f.name: f for f in fields(self.host)}
+            for field in fields(role_cls):
+                if field.name in host_fields:
+                    kw.setdefault(field.name, getattr(self.host, field.name))
+
+        role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
         for fact_cls in getattr(role, "_facts", ()):
