@@ -31,7 +31,10 @@ class NamespaceRunner:
 
         def runner(*args, **kw):
             act = act_cls(*args, **kw)
-            return self._system.execute(act)
+            res = self._system.execute(act)
+            if res.result.state == ResultState.FAILED:
+                raise RuntimeError(f"{act.summary()} failed with {res.result.exc_type}: {res.result.exc_val}")
+            return res
         return runner
 
 

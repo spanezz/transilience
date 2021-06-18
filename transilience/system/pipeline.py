@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Dict
+from ..actions import ResultState
 
 
 if TYPE_CHECKING:
@@ -80,10 +81,8 @@ class LocalPipelineMixin:
                 return action
 
         # Execute
-        try:
-            act = self.execute(action)
-            pipeline.states[act.uuid] = act.result.state
-            return act
-        except Exception:
+        act = self.execute(action)
+        if act.result.state == ResultState.FAILED:
             pipeline.failed = True
-            raise
+        pipeline.states[act.uuid] = act.result.state
+        return act

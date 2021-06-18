@@ -20,8 +20,10 @@ class TestPipeline(LocalTestMixin, unittest.TestCase):
 
     def assertFail(self):
         pipeline_info = PipelineInfo(id=self.pipeline_id)
-        with self.assertRaises(Exception):
-            self.system.execute_pipelined(Fail(msg="test"), pipeline_info)
+        act = self.system.execute_pipelined(Fail(msg="test"), pipeline_info)
+        self.assertEqual(act.result.state, ResultState.FAILED)
+        self.assertTrue(self.system.pipelines[self.pipeline_id].failed)
+        self.assertNoop(ResultState.SKIPPED)
 
     def test_fail(self):
         self.assertNoop(ResultState.NOOP)

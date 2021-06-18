@@ -3,12 +3,14 @@ from typing import TYPE_CHECKING, List, Dict, Any, Optional
 from dataclasses import dataclass, asdict, field
 import contextlib
 import subprocess
+import traceback
 import importlib
 import logging
 import shutil
 import shlex
 import time
 import uuid
+import sys
 import os
 
 if TYPE_CHECKING:
@@ -31,6 +33,8 @@ class ResultState:
     CHANGED = "changed"
     # The action was not run, for example because a previous action failed
     SKIPPED = "skipped"
+    # The action was run but threw an exception
+    FAILED = "failed"
 
 
 @dataclass
@@ -42,12 +46,23 @@ class Result:
     state: int = ResultState.NONE
     # Elapsed time in nanoseconds
     elapsed: Optional[int] = None
+    # Exception type, as a string
+    exc_type: Optional[str] = None
+    # Exception value, stringified
+    exc_val: Optional[str] = None
+    # Exception traceback, formatted
+    exc_tb: List[str] = field(default_factory=list)
 
     @contextlib.contextmanager
     def collect(self):
         start_ns = time.perf_counter_ns()
         try:
             yield
+        except Exception as e:
+            self.state = ResultState.FAILED
+            self.exc_type = str(e.__class__)
+            self.exc_val = str(e)
+            self.exc_tb = traceback.format_tb(sys.exc_info()[2])
         finally:
             self.elapsed = time.perf_counter_ns() - start_ns
 
