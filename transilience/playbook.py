@@ -13,7 +13,7 @@ from transilience.runner import Runner
 
 
 if TYPE_CHECKING:
-    from transilience.system import System
+    from transilience.hosts import Host
 
 
 class Playbook:
@@ -58,7 +58,7 @@ class Playbook:
                             help="verbose output")
         return parser
 
-    def systems(self) -> Sequence[System]:
+    def hosts(self) -> Sequence[Host]:
         """
         Generate a sequence with all the systems on which the playbook needs to run
         """
@@ -84,8 +84,8 @@ class Playbook:
 
         # Start all the runners in separate threads
         threads = []
-        for system in self.systems():
-            # TODO: do this in a thread
+        for host in self.hosts():
+            system = host._make_system()
             runner = Runner(system)
             self.start(runner)
             t = threading.Thread(target=runner.main)
