@@ -166,3 +166,27 @@ class TestFacts(unittest.TestCase):
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value3, 3)
         self.assertEqual(r.value4, 4)
+
+    def test_inherit_unique(self):
+        @dataclass
+        class F1(Facts):
+            value1: int = 1
+
+        @dataclass
+        class F2(Facts):
+            value2: int = 2
+
+        @role.with_facts([F1, F2])
+        class Role1(role.Role):
+            value3: int = 3
+
+        @role.with_facts([F2, F1])
+        class Role2(Role1):
+            value4: int = 4
+
+        self.assertEqual(Role2._facts, (F1, F2))
+        r = Role2()
+        self.assertEqual(r.value1, 1)
+        self.assertEqual(r.value2, 2)
+        self.assertEqual(r.value3, 3)
+        self.assertEqual(r.value4, 4)

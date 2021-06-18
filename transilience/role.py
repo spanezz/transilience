@@ -37,12 +37,22 @@ def with_facts(facts: Union[Facts, Sequence[Facts]] = ()):
         for f in fields(orig):
             facts_fields[f.name] = f
 
+        # Create the unique list of facts to use, sorted as they have been
+        # added to the class
+        all_facts = []
+        for f in getattr(cls, "_facts", ()):
+            if f not in all_facts:
+                all_facts.append(f)
+        for f in facts:
+            if f not in all_facts:
+                all_facts.append(f)
+
         return make_dataclass(
                 cls_name=cls.__name__,
                 fields=[(f.name, f.type, f) for f in facts_fields.values()],
                 bases=(cls,),
                 namespace={
-                    "_facts": getattr(cls, "_facts", ()) + tuple(facts),
+                    "_facts": tuple(all_facts),
                 },
         )
     return wrapper
