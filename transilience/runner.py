@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Dict, List, Set, Sequence, Union, Type, Callable
+from collections import Counter
 import importlib
 import logging
 import sys
@@ -108,6 +109,7 @@ class Runner:
         self.pending: Dict[str, PendingAction] = {}
         # Cache of facts that have already been collected
         self.facts_cache: Dict[Type[Facts], Facts] = {}
+        self.count_by_result = Counter()
 
     def add_pending_action(self, pa: PendingAction, pipeline_info: PipelineInfo):
         # Add to pending queues
@@ -123,6 +125,8 @@ class Runner:
     def receive(self) -> Set[Type[Role]]:
         notified: Set[Type[Role]] = set()
         for act in self.system.receive_pipelined():
+            self.count_by_result[act.result.state] += 1
+
             # Remove from pending queues
             pending = self.pending.pop(act.uuid, None)
             if pending is not None:
@@ -208,6 +212,15 @@ class Runner:
 
             for role in todo:
                 self.add_role(role)
+
+        log.info("%s: %d total actions: %d unchanged, %d changed, %d skipped, %d failed, %d not executed.",
+                 self.system.name,
+                 sum(self.count_by_result.values()),
+                 self.count_by_result[ResultState.NOOP],
+                 self.count_by_result[ResultState.CHANGED],
+                 self.count_by_result[ResultState.SKIPPED],
+                 self.count_by_result[ResultState.FAILED],
+                 self.count_by_result[ResultState.NONE])
 
     @classmethod
     def cli(cls, main):
