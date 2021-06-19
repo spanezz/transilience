@@ -81,7 +81,14 @@ class LocalPipelineMixin:
                 return action
 
         # Execute
-        act = self.execute(action)
+        try:
+            act = self.execute(action)
+        except Exception:
+            # Ignore any exception here. They'll be recorded in the action
+            # result, and we later check that to fail the pipeline if they
+            # happened
+            act = action
+
         if act.result.state == ResultState.FAILED:
             pipeline.failed = True
         pipeline.states[act.uuid] = act.result.state

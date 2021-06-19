@@ -64,6 +64,7 @@ class Result:
             self.exc_type = str(e.__class__)
             self.exc_val = str(e)
             self.exc_tb = traceback.format_tb(sys.exc_info()[2])
+            raise
         finally:
             self.elapsed = time.perf_counter_ns() - start_ns
 
