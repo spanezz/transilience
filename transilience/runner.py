@@ -5,6 +5,7 @@ from dataclasses import fields
 import importlib
 import warnings
 import logging
+import time
 import sys
 from . import template
 from .system.local import Local
@@ -107,6 +108,7 @@ class PendingAction:
 
 class Runner:
     def __init__(self, host: Union[Host, System]):
+        self.started = time.time()
         self.template_engine = template.Engine()
         if isinstance(host, Host):
             self.host = host
@@ -120,6 +122,8 @@ class Runner:
         self.facts_cache: Dict[Type[Facts], Facts] = {}
         self.count_by_result = Counter()
         self.progress = logging.getLogger("progress")
+        elapsed = f"{time.time() - self.started:.3f}s"
+        self.progress.info("%s: [connected %s]", self.system.name, elapsed)
 
     def add_pending_action(self, pa: PendingAction, pipeline_info: PipelineInfo):
         # Add to pending queues
@@ -235,10 +239,20 @@ class Runner:
             for role in todo:
                 self.add_role(role)
 
+        elapsed = time.time() - self.started
+        if elapsed > 60:
+            timings = f"{elapsed/60:d}m {elapsed%60:.2f}s"
+        elif elapsed > 0.8:
+            timings = f"{elapsed:.2f}s"
+        elif elapsed > 0.0008:
+            timings = f"{elapsed/1000:.2f}ms"
+        else:
+            timings = f"{elapsed/1000000:.2f}µs"
         self.progress.info(
-                "%s: %d total actions: %d unchanged, %d changed, %d skipped, %d failed, %d not executed.",
+                "%s: %d total actions in %s: %d unchanged, %d changed, %d skipped, %d failed, %d not executed.",
                 self.system.name,
                 sum(self.count_by_result.values()),
+                timings,
                 self.count_by_result[ResultState.NOOP],
                 self.count_by_result[ResultState.CHANGED],
                 self.count_by_result[ResultState.SKIPPED],
