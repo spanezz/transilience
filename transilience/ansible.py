@@ -57,6 +57,7 @@ class RoleAction:
             if task_args is not None:
                 self.action_args.update(task_args)
 
+        # TODO: handlers
         # TODO: notify
         # TODO: jinja2 markup in string args
         # TODO: template
@@ -122,8 +123,6 @@ class RoleLoader:
     def get_python_code(self) -> str:
         lines = [
             "from __future__ import annotations",
-            "from typing import Dict, Any",
-            "from dataclasses import field",
             "from transilience import role",
             "from transilience.actions import builtin, facts",
             "",
