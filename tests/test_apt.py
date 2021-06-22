@@ -77,6 +77,17 @@ exit {returncode}
             lines = self.run_apt(changed=False, update_cache=True, cache_valid_time=3000)
             self.assertEqual(lines, [])
 
+    def test_check_update(self):
+        lines = self.run_apt(changed=True, update_cache=True, check=True)
+        self.assertEqual(lines, ["--simulate update"])
+
+        with mock.patch("transilience.actions.apt.Apt.get_cache_mtime", return_value=time.time() - 1000):
+            lines = self.run_apt(changed=True, update_cache=True, cache_valid_time=100, check=True)
+            self.assertEqual(lines, ["--simulate update"])
+
+            lines = self.run_apt(changed=False, update_cache=True, cache_valid_time=3000, check=True)
+            self.assertEqual(lines, [])
+
     def test_upgrade(self):
         lines = self.run_apt(changed=False, upgrade="yes", upgraded=0)
         self.assertEqual(lines, ["upgrade --with-new-pkgs"])
@@ -98,6 +109,28 @@ exit {returncode}
 
         lines = self.run_apt(name=["*"], state="latest", upgraded=1)
         self.assertEqual(lines, ["upgrade --with-new-pkgs"])
+
+    def test_check_upgrade(self):
+        lines = self.run_apt(changed=False, upgrade="yes", upgraded=0, check=True)
+        self.assertEqual(lines, ["--simulate upgrade --with-new-pkgs"])
+
+        lines = self.run_apt(upgrade="yes", upgraded=1, check=True)
+        self.assertEqual(lines, ["--simulate upgrade --with-new-pkgs"])
+
+        lines = self.run_apt(upgrade="safe", upgraded=1, check=True)
+        self.assertEqual(lines, ["--simulate upgrade --with-new-pkgs"])
+
+        lines = self.run_apt(upgrade="dist", upgraded=1, check=True)
+        self.assertEqual(lines, ["--simulate dist-upgrade"])
+
+        lines = self.run_apt(upgrade="full", upgraded=1, check=True)
+        self.assertEqual(lines, ["--simulate dist-upgrade"])
+
+        lines = self.run_apt(changed=False, name=["*"], state="latest", upgraded=0, check=True)
+        self.assertEqual(lines, ["--simulate upgrade --with-new-pkgs"])
+
+        lines = self.run_apt(name=["*"], state="latest", upgraded=1, check=True)
+        self.assertEqual(lines, ["--simulate upgrade --with-new-pkgs"])
 
     def test_install(self):
         with mock.patch("transilience.actions.apt.Apt.mark_manually_installed", return_value=None):
@@ -124,6 +157,31 @@ exit {returncode}
                 lines = self.run_apt(changed=False, name=["python3:arm64"], state="present", new=1)
                 self.assertEqual(lines, [])
 
+    def test_check_install(self):
+        with mock.patch("transilience.actions.apt.Apt.mark_manually_installed", return_value=None):
+            status = MockDpkgStatus()
+            with mock.patch("transilience.actions.apt.DpkgStatus", lambda: status):
+                lines = self.run_apt(name=["python3"], state="present", new=1, check=True)
+                self.assertEqual(lines, ["--simulate install python3"])
+
+                lines = self.run_apt(changed=False, name=["python3"], state="present", new=0, check=True)
+                self.assertEqual(lines, ["--simulate install python3"])
+
+                status.packages = {("python3", "amd64"): ("3.7.3-1", "install ok installed")}
+                lines = self.run_apt(changed=False, name=["python3"], state="present", new=0, check=True)
+                self.assertEqual(lines, [])
+
+                status.packages = {("python3", "amd64"): ("3.7.3-1", "deinstall ok config-files")}
+                lines = self.run_apt(name=["python3"], state="present", new=1, check=True)
+                self.assertEqual(lines, ["--simulate install python3"])
+
+                status.packages = {("python3", "arm64"): ("3.7.3-1", "install ok installed")}
+                lines = self.run_apt(name=["python3"], state="present", new=1, check=True)
+                self.assertEqual(lines, ["--simulate install python3"])
+
+                lines = self.run_apt(changed=False, name=["python3:arm64"], state="present", new=1, check=True)
+                self.assertEqual(lines, [])
+
     def test_remove(self):
         status = MockDpkgStatus()
         with mock.patch("transilience.actions.apt.DpkgStatus", lambda: status):
@@ -147,6 +205,30 @@ exit {returncode}
             self.assertEqual(lines, [])
             lines = self.run_apt(name=["python3:arm64"], state="absent", purge=True, removed=1)
             self.assertEqual(lines, ["--purge remove python3:arm64"])
+
+    def test_check_remove(self):
+        status = MockDpkgStatus()
+        with mock.patch("transilience.actions.apt.DpkgStatus", lambda: status):
+            lines = self.run_apt(changed=False, name=["python3"], state="absent", removed=1, check=True)
+            self.assertEqual(lines, [])
+
+            status.packages = {("python3", "amd64"): ("3.7.3-1", "install ok installed")}
+            lines = self.run_apt(name=["python3"], state="absent", removed=1, check=True)
+            self.assertEqual(lines, ["--simulate remove python3"])
+            lines = self.run_apt(name=["python3"], state="absent", purge=True, removed=1, check=True)
+            self.assertEqual(lines, ["--simulate --purge remove python3"])
+
+            status.packages = {("python3", "amd64"): ("3.7.3-1", "deinstall ok config-files")}
+            lines = self.run_apt(changed=False, name=["python3"], state="absent", removed=1, check=True)
+            self.assertEqual(lines, [])
+            lines = self.run_apt(name=["python3"], state="absent", purge=True, removed=1, check=True)
+            self.assertEqual(lines, ["--simulate --purge remove python3"])
+
+            status.packages = {("python3", "arm64"): ("3.7.3-1", "install ok installed")}
+            lines = self.run_apt(changed=False, name=["python3"], state="absent", removed=1, check=True)
+            self.assertEqual(lines, [])
+            lines = self.run_apt(name=["python3:arm64"], state="absent", purge=True, removed=1, check=True)
+            self.assertEqual(lines, ["--simulate --purge remove python3:arm64"])
 
 
 class TestAptReal(ActionTestMixin, ChrootTestMixin, unittest.TestCase):

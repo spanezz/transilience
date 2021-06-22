@@ -270,6 +270,8 @@ class Apt(Action):
         Return a list with the common initial part of apt commands
         """
         cmd = [self.find_apt_get(), "-q", "-y"]
+        if self.check:
+            cmd.append("--simulate")
         cmd.extend(self.expand_dpkg_options())
         return cmd
 
@@ -551,7 +553,11 @@ class Apt(Action):
         cache_updated = False
         if self.update_cache:
             if not self.is_cache_still_valid():
-                self.run_command([self.find_apt_get(), "-q", "update"], capture_output=True)
+                cmd = [self.find_apt_get()]
+                if self.check:
+                    cmd.append("--simulate")
+                cmd += ("-q", "update")
+                self.run_command(cmd, capture_output=True)
                 cache_updated = True
 
         # If there is nothing else to do exit. This will set state as
