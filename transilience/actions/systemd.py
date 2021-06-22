@@ -61,7 +61,7 @@ class Systemd(Action):
         if verbs:
             if summary:
                 summary += " and "
-            summary += " and ".join(summary, ", ".join(verbs) + " systemd")
+            summary += ", ".join(verbs) + " systemd"
 
         if not summary:
             summary += "systemd action with nothing to do"
