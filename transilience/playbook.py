@@ -56,6 +56,9 @@ class Playbook:
                             help="verbose output")
         parser.add_argument("--debug", action="store_true",
                             help="verbose output")
+        parser.add_argument("-C", "--check", action="store_true",
+                            help="do not perform changes, but check if changes would be needed")
+
         return parser
 
     def hosts(self) -> Sequence[Host]:
@@ -80,7 +83,7 @@ class Playbook:
         # Start all the runners in separate threads
         threads = []
         for host in self.hosts():
-            runner = Runner(host)
+            runner = Runner(host, check_mode=self.args.check)
             self.start(runner)
             t = threading.Thread(target=runner.main)
             threads.append(t)

@@ -107,8 +107,9 @@ class PendingAction:
 
 
 class Runner:
-    def __init__(self, host: Union[Host, System]):
+    def __init__(self, host: Union[Host, System], check_mode: bool = False):
         self.started = time.time()
+        self.check_mode = check_mode
         self.template_engine = template.Engine()
         if isinstance(host, Host):
             self.host = host
@@ -126,6 +127,9 @@ class Runner:
         self.progress.info("%s: [connected %s]", self.system.name, elapsed)
 
     def add_pending_action(self, pa: PendingAction, pipeline_info: PipelineInfo):
+        if self.check_mode:
+            pa.action.check = True
+
         # Add to pending queues
         self.pending[pa.action.uuid] = pa
 
@@ -172,8 +176,9 @@ class Runner:
             else:
                 elapsed = f"{action.result.elapsed/1000000000:.3f}s"
 
-            log_fun("%s: %s", self.system.name,
-                    f"[{action.result.state} {elapsed}] {role.name} {pending.summary}")
+            log_fun("%s: %s%s", self.system.name,
+                    f"[{action.result.state} {elapsed}] {role.name} {pending.summary}",
+                    " (check)" if self.check_mode else "")
             role.on_action(pending, action)
 
             # Mark role as done if there are no more tasks
