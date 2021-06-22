@@ -46,11 +46,11 @@ class TestSystemd(ActionTestMixin, LocalTestMixin, unittest.TestCase):
                 return self.run_action(orig, changed=changed), actual_called
 
     def test_daemon_reload(self):
-        act, called = self.assertSystemd(daemon_reload=True, changed=False)
+        act, called = self.assertSystemd(daemon_reload=True, changed=True)
         self.assertEqual(called, ["daemon-reload"])
 
     def test_daemon_reexec(self):
-        act, called = self.assertSystemd(daemon_reexec=True, changed=False)
+        act, called = self.assertSystemd(daemon_reexec=True, changed=True)
         self.assertEqual(called, ["daemon-reexec"])
 
     def test_enable(self):
@@ -145,13 +145,13 @@ class TestSystemdReal(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
             )
         )
 
-        self.run_action(builtin.systemd(daemon_reload=True), changed=False)
+        self.run_action(builtin.systemd(daemon_reload=True), changed=True)
 
     def test_daemon_reload(self):
-        self.assertSystemd(daemon_reload=True, changed=False)
+        self.assertSystemd(daemon_reload=True, changed=True)
 
     def test_daemon_reexec(self):
-        self.assertSystemd(daemon_reexec=True, changed=False)
+        self.assertSystemd(daemon_reexec=True, changed=True)
 
     def test_enable(self):
         self.assertSystemd(unit=self.unit_name, enabled=False, changed=False)

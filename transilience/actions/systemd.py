@@ -130,9 +130,11 @@ class Systemd(Action):
 
         if self.daemon_reload:
             self.run_systemctl("daemon-reload")
+            self.set_changed()
 
         if self.daemon_reexec:
             self.run_systemctl("daemon-reexec")
+            self.set_changed()
 
         if self.unit is not None:
             # Documentation of UnitFileState values can be found in man systemctl(1)
