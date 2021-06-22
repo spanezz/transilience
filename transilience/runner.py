@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Dict, List, Set, Sequence, Union, Type, Callable
 from collections import Counter
 from dataclasses import fields
-import importlib
 import warnings
 import logging
 import time
@@ -188,12 +187,7 @@ class Runner:
                 role.end()
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
-        if isinstance(role_cls, str):
-            name = role_cls
-            mod = importlib.import_module(f"roles.{role_cls}")
-            role_cls = mod.Role
-        else:
-            name = role_cls.__name__
+        name = role_cls.__name__
 
         # TODO: remove this `if` once Role accepts only Host: then we can do
         #       the merging all the time

@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, Union, Type
 import threading
+import importlib
 import argparse
 import inspect
 import logging
@@ -14,6 +15,7 @@ from transilience.runner import Runner
 
 if TYPE_CHECKING:
     from transilience.hosts import Host
+    from .role import Role
 
 
 class Playbook:
@@ -77,13 +79,22 @@ class Playbook:
         self.start(host)
         self.run_context.runner.main()
 
-    def add_role(self, *args, **kw):
+    def load_role(self, role_name: str) -> Type[Role]:
+        """
+        Load a role by its name
+        """
+        mod = importlib.import_module(f"roles.{role_name}")
+        return type(role_name, (mod.Role,), {})
+
+    def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         """
         Add a role to this thread's runner
         """
         if not hasattr(self.run_context, "runner"):
             raise RuntimeError(f"{self.__class__.__name__}.add_role cannot be called outside of a host thread")
-        self.run_context.runner.add_role(*args, **kw)
+        if isinstance(role_cls, str):
+            role_cls = self.load_role(role_cls)
+        self.run_context.runner.add_role(role_cls, **kw)
 
     def start(self, host: Host):
         """
