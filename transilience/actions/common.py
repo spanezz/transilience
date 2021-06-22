@@ -7,6 +7,7 @@ import hashlib
 import stat
 import pwd
 import grp
+import io
 import os
 from transilience.utils.modechange import ModeChange
 from .action import Action, doc
@@ -197,6 +198,17 @@ class FileAction(Action):
 
         Calls self.set_changed() if the filesystem gets changed
         """
+        if self.check:
+            if not os.path.exists(path):
+                self.set_changed()
+                if 'b' in mode:
+                    yield io.BytesIO()
+                else:
+                    yield io.TextIO()
+            else:
+                yield None
+            return
+
         try:
             fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, mode=0o600)
             self.log.info("%s: file created", path)

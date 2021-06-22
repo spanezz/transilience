@@ -3,32 +3,15 @@ import tempfile
 import unittest
 import stat
 import os
-from transilience.unittest import ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
+from transilience.unittest import FileModeMixin, ActionTestMixin, LocalTestMixin, LocalMitogenTestMixin
 from transilience.actions import builtin
 
 
-class CopyTests(ActionTestMixin):
+class CopyTests(FileModeMixin, ActionTestMixin):
     def run_copy(self, changed=True, **kwargs):
         # Try check mode
-        dest = kwargs["dest"]
-        try:
-            orig_stat = os.stat(dest)
-        except FileNotFoundError:
-            orig_stat = None
-            orig_contents = None
-
-        if orig_stat is not None:
-            with open(dest, "rb") as fd:
-                orig_contents = fd.read()
-
-        self.run_action(builtin.copy(check=True, **kwargs), changed=changed)
-
-        if orig_stat is None:
-            self.assertFalse(os.path.exists(dest))
-        else:
-            self.assertEqual(os.stat(dest), orig_stat)
-            with open(dest, "rb") as fd:
-                self.assertEqual(orig_contents, fd.read())
+        with self.assertUnchanged(kwargs["dest"]):
+            self.run_action(builtin.copy(check=True, **kwargs), changed=changed)
 
         # Try real mode
         self.run_action(builtin.copy(**kwargs), changed=changed)

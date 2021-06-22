@@ -83,7 +83,9 @@ class File(FileAction):
             self._mkpath(parent)
 
         self.log.info("%s: creating directory", path)
-        os.mkdir(path)
+        if not self.check:
+            os.mkdir(path)
+        self.set_changed()
 
         patho = self.get_path_object(path)
         self.set_path_object_permissions(patho, record=False)
@@ -121,33 +123,37 @@ class File(FileAction):
             raise RuntimeError(f"{target!r} does not exists, and force is False")
 
         if path is None:
-            os.symlink(target, self.path)
+            if not self.check:
+                os.symlink(target, self.path)
         elif path.islink():
             orig = os.readlink(self.path)
             if orig == target:
                 return
-            os.symlink(target, self.path)
+            if not self.check:
+                os.symlink(target, self.path)
         elif path.isdir():
             # tempfile.mktemp is deprecated, but I cannot find a better way to
             # atomically create a symlink with a nonconflicting name.
-            tmp = tempfile.mktemp(prefix=self.path)
-            os.symlink(target, tmp)
-            try:
-                os.rmdir(path.path)
-                os.rename(tmp, self.path)
-            except Exception:
-                os.unlink(tmp)
-                raise
+            if not self.check:
+                tmp = tempfile.mktemp(prefix=self.path)
+                os.symlink(target, tmp)
+                try:
+                    os.rmdir(path.path)
+                    os.rename(tmp, self.path)
+                except Exception:
+                    os.unlink(tmp)
+                    raise
         else:
             # tempfile.mktemp is deprecated, but I cannot find a better way to
             # atomically create a symlink with a nonconflicting name
-            tmp = tempfile.mktemp(prefix=self.path)
-            os.symlink(target, tmp)
-            try:
-                os.rename(tmp, self.path)
-            except Exception:
-                os.unlink(tmp)
-                raise
+            if not self.check:
+                tmp = tempfile.mktemp(prefix=self.path)
+                os.symlink(target, tmp)
+                try:
+                    os.rename(tmp, self.path)
+                except Exception:
+                    os.unlink(tmp)
+                    raise
 
         self.set_changed()
         path = self.get_path_object(self.path, follow=False)
@@ -161,29 +167,32 @@ class File(FileAction):
             raise RuntimeError(f"{self.src!r} does not exist")
 
         if path is None:
-            os.link(self.src, self.path)
+            if not self.check:
+                os.link(self.src, self.path)
         elif path.islink():
             # tempfile.mktemp is deprecated, but I cannot find a better way to
             # atomically create a symlink with a nonconflicting name.
-            tmp = tempfile.mktemp(prefix=self.path)
-            os.link(self.src, tmp)
-            try:
-                os.unlink(self.path)
-                os.rename(tmp, self.path)
-            except Exception:
-                os.unlink(tmp)
-                raise
+            if not self.check:
+                tmp = tempfile.mktemp(prefix=self.path)
+                os.link(self.src, tmp)
+                try:
+                    os.unlink(self.path)
+                    os.rename(tmp, self.path)
+                except Exception:
+                    os.unlink(tmp)
+                    raise
         elif path.isdir():
             # tempfile.mktemp is deprecated, but I cannot find a better way to
             # atomically create a symlink with a nonconflicting name.
-            tmp = tempfile.mktemp(prefix=self.path)
-            os.link(self.src, tmp)
-            try:
-                os.rmdir(path.path)
-                os.rename(tmp, self.path)
-            except Exception:
-                os.unlink(tmp)
-                raise
+            if not self.check:
+                tmp = tempfile.mktemp(prefix=self.path)
+                os.link(self.src, tmp)
+                try:
+                    os.rmdir(path.path)
+                    os.rename(tmp, self.path)
+                except Exception:
+                    os.unlink(tmp)
+                    raise
         else:
             target = self.get_path_object(self.src, follow=False)
             # noop if it's a link to the same target
@@ -191,13 +200,14 @@ class File(FileAction):
                 return
             # tempfile.mktemp is deprecated, but I cannot find a better way to
             # atomically create a symlink with a nonconflicting name
-            tmp = tempfile.mktemp(prefix=self.path)
-            os.link(self.src, tmp)
-            try:
-                os.rename(tmp, self.path)
-            except Exception:
-                os.unlink(tmp)
-                raise
+            if not self.check:
+                tmp = tempfile.mktemp(prefix=self.path)
+                os.link(self.src, tmp)
+                try:
+                    os.rename(tmp, self.path)
+                except Exception:
+                    os.unlink(tmp)
+                    raise
 
         self.set_changed()
         path = self.get_path_object(self.path, follow=False)
@@ -219,10 +229,12 @@ class File(FileAction):
 
         if path.isdir():
             self.set_changed()
-            shutil.rmtree(self.path, ignore_errors=False)
+            if not self.check:
+                shutil.rmtree(self.path, ignore_errors=False)
             self.log.info("%s: removed directory recursively")
         else:
-            os.unlink(self.path)
+            if not self.check:
+                os.unlink(self.path)
             self.set_changed()
             self.log.info("%s: removed")
 

@@ -15,6 +15,9 @@ def read_umask() -> int:
 
 class FileTestMixin(FileModeMixin, ActionTestMixin):
     def run_file_action(self, changed=True, **kw):
+        with self.assertUnchanged(kw["path"]):
+            self.run_action(builtin.file(check=True, **kw), changed=changed)
+
         return self.run_action(builtin.file(**kw), changed=changed)
 
 

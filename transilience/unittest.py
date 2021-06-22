@@ -149,10 +149,116 @@ def cleanup():
         chroot.stop()
 
 
+class FileState:
+    def __init__(self, path: str):
+        self.path = path
+
+    def __str__(self):
+        return repr(self)
+
+    def __eq__(self, other: "FileState"):
+        return self.__class__ == other.__class__
+
+    @classmethod
+    def scan(self, path: str) -> "FileState":
+        try:
+            st = os.lstat(path)
+        except FileNotFoundError:
+            return FileStateMissing(path)
+
+        if stat.S_ISLNK(st.st_mode):
+            return FileStateLink(path, st)
+        elif stat.S_ISDIR(st.st_mode):
+            return FileStateDir(path, st)
+        else:
+            return FileStateFile(path, st)
+
+
+class FileStateMissing(FileState):
+    def __repr__(self):
+        return f"{self.path!r}: missing"
+
+
+class FileStateStat(FileState):
+    def __init__(self, path: str, st: os.stat_result):
+        super().__init__(path)
+        self.stat = st
+
+    def __eq__(self, other: "FileStateStat"):
+        if not super().__eq__(other):
+            return False
+
+        return self.stat == other.stat
+
+
+class FileStateLink(FileStateStat):
+    def __init__(self, path: str, st: os.stat_result):
+        super().__init__(path, st)
+        self.contents = os.readlink(path)
+
+    def __repr__(self):
+        return (f"{self.path!r}: symlink to {self.contents!r},"
+                f" mode=0o{stat.S_IMODE(self.stat.st_mode):o},"
+                f" uid={stat.st_uid}, gid={stat.st_gid}")
+
+    def __eq__(self, other: "FileStateLink"):
+        if not super().__eq__(other):
+            return False
+        return self.contents == other.contents
+
+
+class FileStateFile(FileStateStat):
+    def __init__(self, path: str, st: os.stat_result):
+        super().__init__(path, st)
+        with open(path, "rb") as fd:
+            self.contents = fd.read()
+
+    def __repr__(self):
+        return (f"{self.path!r}: file,"
+                f" mode=0o{stat.S_IMODE(self.stat.st_mode):o},"
+                f" uid={self.stat.st_uid}, gid={self.stat.st_gid}"
+                f" contents={self.contents!r}")
+
+    def __eq__(self, other: "FileStateFile"):
+        if not super().__eq__(other):
+            return False
+        return self.contents == other.contents
+
+
+class FileStateDir(FileStateStat):
+    def __init__(self, path: str, st: os.stat_result):
+        super().__init__(path, st)
+        self.contents = {}
+        for fn in os.listdir(path):
+            p = os.path.join(path, fn)
+            self.contents[fn] = FileState.scan(p)
+
+    def __repr__(self):
+        return (f"{self.path!r}: dir"
+                f" mode=0o{stat.S_IMODE(self.stat.st_mode):o},"
+                f" uid={stat.st_uid}, gid={stat.st_gid}")
+
+    def __eq__(self, other: "FileStateFile"):
+        if not super().__eq__(other):
+            return False
+        return self.contents == other.contents
+
+
 class FileModeMixin:
     """
     Functions useful when working with file modes
     """
+    @contextlib.contextmanager
+    def assertUnchanged(self, path: str):
+        orig = FileState.scan(path)
+
+        try:
+            yield
+        finally:
+            new = FileState.scan(path)
+
+            self.assertEqual(new, orig)
+
     def assertFileModeEqual(self, actual: Union[None, int, os.stat_result], expected: Optional[int]):
         if isinstance(actual, os.stat_result):
             actual = stat.S_IMODE(actual.st_mode)
@@ -174,15 +280,14 @@ class ActionTestMixin:
     Test case mixin with common shortcuts for running actions
     """
     def run_action(self, action, changed=True):
-        res = list(self.system.run_actions([action]))
-        self.assertEqual(len(res), 1)
-        self.assertIsInstance(res[0], action.__class__)
+        act = self.system.execute(action)
+        self.assertIsInstance(act, action.__class__)
         if changed:
-            self.assertEqual(res[0].result.state, ResultState.CHANGED)
+            self.assertEqual(act.result.state, ResultState.CHANGED)
         else:
-            self.assertEqual(res[0].result.state, ResultState.NOOP)
-        self.assertEqual(res[0].uuid, action.uuid)
-        return res[0]
+            self.assertEqual(act.result.state, ResultState.NOOP)
+        self.assertEqual(act.uuid, action.uuid)
+        return act
 
 
 class LocalTestMixin:

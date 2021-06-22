@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional
+from contextlib import contextmanager
 import tempfile
 import unittest
 import stat
@@ -15,16 +16,25 @@ def read_umask() -> int:
 
 
 class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
-    def assertBlockInFile(self, orig: List[str], expected: Optional[List[str]] = None, **kw):
+    @contextmanager
+    def testfile(self, orig: Optional[List[str]] = None):
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            if orig is not None:
+                with open(testfile, "wb") as fd:
+                    for line in orig:
+                        fd.write(line.encode())
+            else:
+                if os.path.exists(testfile):
+                    os.unlink(testfile)
+
+            yield testfile
+
+    def assertBlockInFile(self, orig: Optional[List[str]] = None, expected: Optional[List[str]] = None, **kw):
         kw.setdefault("block", "")
 
         # Test with check = False
-        with tempfile.TemporaryDirectory() as workdir:
-            testfile = os.path.join(workdir, "testfile")
-            with open(testfile, "wb") as fd:
-                for line in orig:
-                    fd.write(line.encode())
-
+        with self.testfile(orig) as testfile:
             action = builtin.blockinfile(
                 path=testfile,
                 **kw
@@ -43,11 +53,11 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
                     self.assertEqual(infd.read(), "".join(orig))
 
         # Test with check = True
-        with tempfile.TemporaryDirectory() as workdir:
-            testfile = os.path.join(workdir, "testfile")
-            with open(testfile, "wb") as fd:
-                for line in orig:
-                    fd.write(line.encode())
+        with self.testfile(orig) as testfile:
+            try:
+                orig_stat = os.stat(testfile)
+            except FileNotFoundError:
+                orig_stat = None
 
             action = builtin.blockinfile(
                 path=testfile,
@@ -61,8 +71,12 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             else:
                 self.assertEqual(action.result.state, ResultState.NOOP)
 
-            with open(testfile, "rt") as infd:
-                self.assertEqual(infd.read(), "".join(orig))
+            if orig_stat is None:
+                self.assertFalse(os.path.exists(testfile))
+            else:
+                self.assertEqual(os.stat(testfile), orig_stat)
+                with open(testfile, "rt") as infd:
+                    self.assertEqual(infd.read(), "".join(orig))
 
     def test_missing_noop(self):
         with tempfile.TemporaryDirectory() as workdir:
@@ -113,6 +127,12 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             for line in lns:
                 res.append(line.strip() + "\n")
             return res
+
+        self.assertBlockInFile(
+                None,
+                lines(begin, "test", "test1", end),
+                block="test\ntest1\n",
+                create=True)
 
         self.assertBlockInFile(
                 lines("line0", begin, "line1", end, "line2"),
