@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 class Playbook:
     def __init__(self):
         self.progress = logging.getLogger("progress")
+        self.run_context = threading.local()
 
     def setup_logging(self):
         FORMAT = "%(asctime)-15s %(levelname)s %(name)s %(message)s"
@@ -67,7 +68,24 @@ class Playbook:
         """
         return ()
 
-    def start(self, runner: Runner):
+    def thread_main(self, host: Host):
+        """
+        Main entry point for per-host threads
+        """
+        self.run_context.host = host
+        self.run_context.runner = Runner(host, check_mode=self.args.check)
+        self.start(host)
+        self.run_context.runner.main()
+
+    def add_role(self, *args, **kw):
+        """
+        Add a role to this thread's runner
+        """
+        if not hasattr(self.run_context, "runner"):
+            raise RuntimeError(f"{self.__class__.__name__}.add_role cannot be called outside of a host thread")
+        self.run_context.runner.add_role(*args, **kw)
+
+    def start(self, host: Host):
         """
         Start the playbook on the given runner.
 
@@ -83,9 +101,7 @@ class Playbook:
         # Start all the runners in separate threads
         threads = []
         for host in self.hosts():
-            runner = Runner(host, check_mode=self.args.check)
-            self.start(runner)
-            t = threading.Thread(target=runner.main)
+            t = threading.Thread(target=self.thread_main, args=(host,))
             threads.append(t)
             t.start()
 
