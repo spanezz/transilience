@@ -29,22 +29,19 @@ class User(backend.User):
             if self.action.uid is not None and info.pw_uid != self.action.uid:
                 cmd.append('-u')
                 cmd.append(str(self.action.uid))
-            self.action.run_command(cmd)
-            self.action.set_changed()
+            self.action.run_change_command(cmd)
         elif self.action.password_lock is False and info.pw_passwd.startswith('*LOCKED*'):
             cmd = [self.action.find_command('pw'), 'unlock', self.action.name]
             if self.action.uid is not None and info.pw_uid != self.action.uid:
                 cmd.append('-u')
                 cmd.append(str(self.action.uid))
-            self.action.run_command(cmd)
-            self.action.set_changed()
+            self.action.run_change_command(cmd)
 
     def remove_user(self):
         cmd = [self.action.find_command("pw"), 'userdel', '-n', self.action.name]
         if self.action.remove:
             cmd.append('-r')
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
     def create_user(self):
         cmd = [self.action.find_command("pw"), 'useradd', '-n', self.action.name]
@@ -102,13 +99,12 @@ class User(backend.User):
 
         # system cannot be handled currently - should we error if its requested?
         # create the user
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
         # we have to set the password in a second command
         if self.action.password is not None:
             cmd = [self.action.find_command('chpass'), '-p', self.action.password, self.action.name]
-            self.action.run_command(cmd)
+            self.action.run_change_command(cmd)
 
         # we have to lock/unlock the password in a distinct command
         self._handle_lock()
@@ -130,7 +126,8 @@ class User(backend.User):
             cmd.append(self.action.comment)
 
         if self.action.home is not None:
-            if (info.pw_dir != self.action.home and self.action.move_home) or (not os.path.exists(self.action.home) and self.action.create_home):
+            if ((info.pw_dir != self.action.home and self.action.move_home)
+                    or (not os.path.exists(self.action.home) and self.action.create_home)):
                 cmd.append('-m')
             if info.pw_dir != self.action.home:
                 cmd.append('-d')
@@ -215,14 +212,13 @@ class User(backend.User):
 
         # modify the user if cmd will do anything
         if cmd_len != len(cmd):
-            self.action.run_command(cmd)
-            self.action.set_changed()
+            self.action.run_change_command(cmd)
 
         # we have to set the password in a second command
         if (self.action.update_password == 'always' and self.action.password is not None and
                 info.pw_passwd.lstrip('*LOCKED*') != self.action.password.lstrip('*LOCKED*')):
             cmd = [self.action.find_command('chpass'), '-p', self.action.password, self.action.name]
-            self.action.run_command(cmd)
+            self.action.run_change_command(cmd)
 
         # we have to lock/unlock the password in a distinct command
         self._handle_lock()

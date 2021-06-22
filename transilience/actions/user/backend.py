@@ -274,8 +274,7 @@ class Generic:
             cmd.append('-r')
         cmd.append(self.action.name)
 
-        self.action.set_changed()
-        self.action.run_command(cmd)
+        self.action.run_change_command(cmd)
 
     def create_user_useradd(self):
         if self.action.local:
@@ -356,8 +355,7 @@ class Generic:
 
         cmd.append(self.action.name)
 
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
         if not self.action.local:
             return
@@ -368,13 +366,13 @@ class Generic:
             else:
                 # Convert seconds since Epoch to days since Epoch
                 lexpires = self.action.expires // 86400
-            self.action.run_command([lchage_cmd, '-E', str(lexpires), self.action.name])
+            self.action.run_change_command([lchage_cmd, '-E', str(lexpires), self.action.name])
 
         if not self.action.groups:
             return
 
         for add_group in groups:
-            self.action.run_command([lgroupmod_cmd, '-M', self.action.name, add_group])
+            self.action.run_change_command([lgroupmod_cmd, '-M', self.action.name, add_group])
 
     def _check_usermod_append(self, usermod_path: str):
         """
@@ -524,26 +522,22 @@ class Generic:
         # skip if no usermod changes to be made
         if len(cmd) > 1:
             cmd.append(self.action.name)
-            self.action.run_command(cmd)
-            self.action.set_changed()
+            self.action.run_change_command(cmd)
 
         if not self.action.local:
             return
 
         if lexpires is not None:
-            self.action.run_command([lchage_cmd, '-E', str(lexpires), self.action.name])
-            self.action.set_changed()
+            self.action.run_change_command([lchage_cmd, '-E', str(lexpires), self.action.name])
 
         if not lgroupmod_add == 0 and not lgroupmod_del:
             return
 
         for add_group in lgroupmod_add:
-            self.action.run_command([lgroupmod_cmd, '-M', self.action.name, add_group])
-            self.action.set_changed()
+            self.action.run_change_command([lgroupmod_cmd, '-M', self.action.name, add_group])
 
         for del_group in lgroupmod_del:
-            self.action.run_command([lgroupmod_cmd, '-m', self.action.name, del_group])
-            self.action.set_changed()
+            self.action.run_change_command([lgroupmod_cmd, '-m', self.action.name, del_group])
 
     def chown_homedir(self, uid, gid, path):
         os.chown(path, uid, gid)
@@ -665,8 +659,7 @@ class Generic:
         else:
             cmd.append('-N')
             cmd.append('')
-            self.action.run_command(cmd, input=overwrite)
-            self.action.set_changed()
+            self.action.run_change_command(cmd, input=overwrite)
 
         # If the keys were successfully created, we should be able
         # to tweak ownership.
@@ -700,8 +693,7 @@ class Generic:
         cmd.append('-M')
         cmd.append(self.action.password_expire_max)
         cmd.append(self.action.name)
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
     def set_password_expire_min(self):
         if HAVE_SPWD and self.action.password_expire_min == spwd.getspnam(self.action.name).sp_min:
@@ -711,8 +703,7 @@ class Generic:
         cmd.append('-m')
         cmd.append(self.action.password_expire_min)
         cmd.append(self.action.name)
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
     def do_absent(self):
         if self.user_exists():

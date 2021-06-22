@@ -113,6 +113,11 @@ class User(Action):
         else:
             raise NotImplementedError(f"User backend for {system!r} platform is not available")
 
+    def run_change_command(self, cmd: List[str], input: Optional[bytes] = None):
+        if not self.check:
+            self.run_command(cmd, input=input)
+        self.set_changed()
+
     def run(self, system: transilience.system.System):
         super().run(system)
 

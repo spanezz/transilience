@@ -58,27 +58,25 @@ class Alpine(backend.User):
 
         cmd.append(self.action.name)
 
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
         if self.action.password is not None:
             cmd = [self.action.find_command("chpasswd")]
             cmd.append('--encrypted')
             data = f'{self.action.name}:{self.action.password}'
-            self.action.run_command(cmd, input=data.encode())
+            self.action.run_change_command(cmd, input=data.encode())
 
         # Add to additional groups
         if self.action.groups:
             adduser_cmd = self.action.find_command("adduser")
             for group in self.get_groups_set():
-                self.action.run_command([adduser_cmd, self.action.name, group])
+                self.action.run_change_command([adduser_cmd, self.action.name, group])
 
     def remove_user(self):
         cmd = [self.action.find_command('deluser'), self.action.name]
         if self.action.remove:
             cmd.append('--remove-home')
-        self.action.run_command(cmd)
-        self.action.set_changed()
+        self.action.run_change_command(cmd)
 
     def modify_user(self):
         current_groups = self.user_group_membership()
@@ -95,17 +93,16 @@ class Alpine(backend.User):
             if group_diff:
                 for g in groups:
                     if g in group_diff:
-                        self.action.run_command([add_cmd_bin, self.action.name, g])
-                        self.action.set_changed()
+                        self.action.run_change_command([add_cmd_bin, self.action.name, g])
 
                 for g in group_diff:
                     if g not in groups and not self.action.append:
-                        self.action.run_command([remove_cmd_bin, self.action.name, g])
-                        self.action.set_changed()
+                        self.action.run_change_command([remove_cmd_bin, self.action.name, g])
 
         # Manage password
-        if self.action.update_password == 'always' and self.action.password is not None and info[1] != self.action.password:
+        if (self.action.update_password == 'always'
+                and self.action.password is not None
+                and info[1] != self.action.password):
             cmd = [self.action.find_command('chpasswd'), '--encrypted']
             data = f'{self.action.name}:{self.action.password}'
-            self.action.run_command(cmd, input=data)
-            self.action.set_changed()
+            self.action.run_change_command(cmd, input=data)

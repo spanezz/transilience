@@ -15,6 +15,15 @@ class TestUser(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
 
     def assertUser(self, changed=True, **kwargs):
         kwargs.setdefault("name", self.user_name)
+
+        # Quick and dirty way of testing check mode: if it performs actions,
+        # the next call to the action should report not changed.
+        #
+        # There can be more serious tests after a refactoring of the User
+        # action implementations
+        orig = builtin.user(check=True, **kwargs)
+        self.run_action(orig, changed=changed)
+
         orig = builtin.user(**kwargs)
         return self.run_action(orig, changed=changed)
 
