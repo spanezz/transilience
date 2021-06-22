@@ -36,11 +36,11 @@ class Play(Playbook):
         # Alternatively, you can execute on the local system, without Mitogen
         # yield Server(name="local", type="Local")
 
-    def start(self, runner):
+    def start(self, host: Host):
 
         # Add roles and start sending actions to be executed. All arguments after
         # the role name are forwarded to the Role constructor
-        runner.add_role("mail_aliases", aliases={
+        self.add_role("mail_aliases", aliases={
             "transilience": "enrico",
         })
 
@@ -61,6 +61,7 @@ optional arguments:
   -h, --help     show this help message and exit
   -v, --verbose  verbose output
   --debug        verbose output
+  -C, --check    do not perform changes, but check if changes would be needed
 ```
 
 Roles are loaded as normal Python `roles.<name>` modules, which are expected to
