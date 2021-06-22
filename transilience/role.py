@@ -79,6 +79,7 @@ class Role:
         self._pending: Set[str] = set()
         self._extra_when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]] = {}
         self._extra_notify: List[Type["Role"]] = []
+        self._facts_received: Set[Type[Facts]] = set()
 
     @contextlib.contextmanager
     def when(self, when: Dict[Union[actions.Action, PendingAction], Union[str, List[str]]]):
@@ -181,11 +182,29 @@ class Role:
                     if name not in ("uuid", "result"):
                         setattr(self, name, value)
 
+                facts_available = getattr(self, "facts_available", None)
+                if facts_available is not None:
+                    facts_available(action)
+
                 have_facts = getattr(self, "have_facts", None)
                 if have_facts is not None:
-                    self.have_facts(action)
-                # TODO: call have_all_facts() on all roles that were waiting for this
-                #       fact as the last fact still missing
+                    have_facts(action)
+
+                # Call all_facts_available() if all the facts we were waiting
+                # for were received
+                facts_cls = action.__class__
+                if facts_cls not in self._facts_received:
+                    # We hadn't received this Facts before
+                    self._facts_received.add(action.__class__)
+
+                    # Is it one of those we were expecting?
+                    wanted_facts = set(getattr(self, "_facts", ()))
+                    if facts_cls in wanted_facts:
+                        # Are we expecting anything else?
+                        if not (self._facts_received - wanted_facts):
+                            all_facts_available = getattr(self, "all_facts_available", None)
+                            if all_facts_available is not None:
+                                all_facts_available()
         else:
             if isinstance(action, Facts):
                 # Enqueue a Fail action to stop the pipeline

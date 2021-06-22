@@ -209,7 +209,6 @@ class Runner:
                 pa = PendingAction(role, cached, [])
                 role._pending.add(cached.uuid)
                 self._notify_action_to_roles(pa, cached)
-                role.have_facts(cached)
             else:
                 # Check if this Facts is already pending: if it is, schedule to
                 # notify this role too when it arrives
