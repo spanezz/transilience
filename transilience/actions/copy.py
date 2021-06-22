@@ -92,6 +92,10 @@ class Copy(FileAction):
         else:
             content = self.content
 
+        if self.check:
+            self.set_changed()
+            return
+
         with self.write_file_atomically(dest, "wb") as fd:
             fd.write(content)
 
@@ -109,6 +113,10 @@ class Copy(FileAction):
             dest = path.path
         else:
             dest = self.dest
+
+        if self.check:
+            self.set_changed()
+            return
 
         with self.write_file_atomically(dest, "w+b") as fd:
             system.transfer_file(self.src, fd)
