@@ -1,6 +1,7 @@
 from __future__ import annotations
 import tempfile
 import unittest
+from unittest import mock
 import shlex
 import os
 from transilience.actions import builtin, ResultState
@@ -8,6 +9,15 @@ from transilience.actions import builtin, ResultState
 
 class TestCommand(unittest.TestCase):
     def assertRun(self, changed=True, **kwargs):
+        with mock.patch("subprocess.run") as subprocess_run:
+            act = builtin.command(check=True, **kwargs)
+            act.run(None)
+            if changed:
+                self.assertEqual(act.result.state, ResultState.CHANGED)
+            else:
+                self.assertEqual(act.result.state, ResultState.NOOP)
+        self.assertFalse(subprocess_run.called)
+
         act = builtin.command(**kwargs)
         act.run(None)
         if changed:

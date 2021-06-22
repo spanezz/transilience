@@ -90,6 +90,7 @@ class Command(Action):
             args = shlex.split(cast(str, self.cmd))
 
         self.set_changed()
-        res = subprocess.run(args, **kwargs)
-        self.stdout = res.stdout
-        self.stderr = res.stderr
+        if not self.check:
+            res = subprocess.run(args, **kwargs)
+            self.stdout = res.stdout
+            self.stderr = res.stderr
