@@ -147,6 +147,9 @@ class BlockInFile(FileAction):
             return
 
         # Write out the new contents
-        with self.write_file_atomically(dest, "wb") as fd:
-            for line in lines:
-                fd.write(line)
+        if self.check:
+            self.set_changed()
+        else:
+            with self.write_file_atomically(dest, "wb") as fd:
+                for line in lines:
+                    fd.write(line)

@@ -170,7 +170,8 @@ class FileAction(Action):
             return
         mode = self._compute_fs_perms(orig=stat.S_IMODE(path.st.st_mode), is_dir=path.isdir())
         if mode is not None:
-            path.chmod(mode)
+            if not self.check:
+                path.chmod(mode)
             if record:
                 self.mode = mode
             self.set_changed()
@@ -181,7 +182,8 @@ class FileAction(Action):
 
         if (self.owner != -1 and self.owner != path.st.st_uid) or (self.group != -1 and self.group != path.st.st_gid):
             self.set_changed()
-            path.chown(cast(int, self.owner), cast(int, self.group))
+            if not self.check:
+                path.chown(cast(int, self.owner), cast(int, self.group))
             self.log.info("%s: file ownership set to %d %d", path, self.owner, self.group)
         else:
             if record:

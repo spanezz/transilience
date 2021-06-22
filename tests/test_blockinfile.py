@@ -18,6 +18,7 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
     def assertBlockInFile(self, orig: List[str], expected: Optional[List[str]] = None, **kw):
         kw.setdefault("block", "")
 
+        # Test with check = False
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
             with open(testfile, "wb") as fd:
@@ -40,6 +41,28 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
 
                 with open(testfile, "rt") as infd:
                     self.assertEqual(infd.read(), "".join(orig))
+
+        # Test with check = True
+        with tempfile.TemporaryDirectory() as workdir:
+            testfile = os.path.join(workdir, "testfile")
+            with open(testfile, "wb") as fd:
+                for line in orig:
+                    fd.write(line.encode())
+
+            action = builtin.blockinfile(
+                path=testfile,
+                check=True,
+                **kw
+            )
+            action.run(None)
+
+            if expected is not None:
+                self.assertEqual(action.result.state, ResultState.CHANGED)
+            else:
+                self.assertEqual(action.result.state, ResultState.NOOP)
+
+            with open(testfile, "rt") as infd:
+                self.assertEqual(infd.read(), "".join(orig))
 
     def test_missing_noop(self):
         with tempfile.TemporaryDirectory() as workdir:
