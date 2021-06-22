@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Union, Type
+from typing import TYPE_CHECKING, Sequence, Union, Type, Optional
 import threading
 import importlib
 import argparse
@@ -61,6 +61,8 @@ class Playbook:
                             help="verbose output")
         parser.add_argument("-C", "--check", action="store_true",
                             help="do not perform changes, but check if changes would be needed")
+        parser.add_argument("--to-python", action="store", metavar="role",
+                            help="print the given Ansible role as Transilience Python code")
 
         return parser
 
@@ -79,12 +81,40 @@ class Playbook:
         self.start(host)
         self.run_context.runner.main()
 
+    def load_python_role(self, role_name: str) -> Optional[Type[Role]]:
+        """
+        Try to build a Transilience role from a Python module
+        """
+        mod = importlib.import_module(f"roles.{role_name}")
+        if not hasattr(mod, "Role"):
+            return None
+        return type(role_name, (mod.Role,), {})
+
+    def load_ansible_role(self, role_name: str) -> Optional[Type[Role]]:
+        """
+        Try to build a Transilience role from an Ansible YAML role
+        """
+        from .ansible import RoleLoader, RoleNotFoundError
+        try:
+            loader = RoleLoader(role_name)
+            loader.load_tasks()
+        except RoleNotFoundError:
+            return None
+        return loader.get_role_class()
+
     def load_role(self, role_name: str) -> Type[Role]:
         """
         Load a role by its name
         """
-        mod = importlib.import_module(f"roles.{role_name}")
-        return type(role_name, (mod.Role,), {})
+        role = self.load_python_role(role_name)
+        if role is not None:
+            return role
+
+        role = self.load_ansible_role(role_name)
+        if role is not None:
+            return role
+
+        raise RuntimeError(f"role {role_name} not found")
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         """
@@ -104,10 +134,23 @@ class Playbook:
         """
         raise NotImplementedError(f"{self.__class__.__name__}.start is not implemented")
 
+    def role_to_python(self, name: str, file=None):
+        """
+        Print the Python code generated from the given Ansible role
+        """
+        from .ansible import RoleLoader
+        loader = RoleLoader(name)
+        loader.load_tasks()
+        print(loader.get_python_code(), file=file)
+
     def main(self):
         parser = self.make_argparser()
         self.args = parser.parse_args()
         self.setup_logging()
+
+        if self.args.to_python:
+            self.role_to_python(self.args.to_python)
+            return
 
         # Start all the runners in separate threads
         threads = []
