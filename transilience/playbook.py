@@ -97,7 +97,7 @@ class Playbook:
         from .ansible import RoleLoader, RoleNotFoundError
         try:
             loader = RoleLoader(role_name)
-            loader.load_tasks()
+            loader.load()
         except RoleNotFoundError:
             return None
         return loader.get_role_class()
@@ -140,7 +140,7 @@ class Playbook:
         """
         from .ansible import RoleLoader
         loader = RoleLoader(name)
-        loader.load_tasks()
+        loader.load()
         print(loader.get_python_code(), file=file)
 
     def main(self):
