@@ -51,15 +51,16 @@ class RoleAction:
         self.action_args = task[modname]
 
         if self.action_cls == builtin.command:
-            # Fixups for command
+            # Fixups for command: in ansible it can be a simple string instead of a dict
             if isinstance(self.action_args, str):
                 self.action_args = {"argv": shlex.split(self.action_args)}
             task_args = self.task.get("args")
             if task_args is not None:
                 self.action_args.update(task_args)
         elif self.action_cls == builtin.apt:
-            # Fixups for apt
-            self.action_args["name"] = self.action_args["name"].split(',')
+            # Fixups for apt: in ansible name can be a comma separated string
+            if isinstance(self.action_args["name"], str):
+                self.action_args["name"] = self.action_args["name"].split(',')
 
         # TODO: template
         # TODO: jinja2 markup in string args
