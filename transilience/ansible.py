@@ -9,6 +9,7 @@ from .role import Role, with_facts
 
 if TYPE_CHECKING:
     from .action import Action
+    YamlDict = Dict[str, Any]
 
 
 class RoleNotFoundError(Exception):
@@ -19,48 +20,54 @@ class RoleNotLoadedError(Exception):
     pass
 
 
-class RoleAction:
-    def __init__(self, task: Dict[str, Any]):
-        self.task = task
-        self.action_cls: Type[Action]
+class Task:
+    def __init__(self, action_cls: Type[Action], args: YamlDict, task_info: YamlDict, transilience_name: str):
+        self.action_cls = action_cls
+        self.args = args
+        self.task_info = task_info
+        self.transilience_name = transilience_name
 
+    @classmethod
+    def create(cls, task_info: YamlDict):
         candidates = []
-        for key in task.keys():
+        for key in task_info.keys():
             if key in ("name", "args", "notify"):
                 continue
             candidates.append(key)
 
         if len(candidates) != 1:
-            raise RoleNotLoadedError(f"could not find a known module in task {task!r}")
+            raise RoleNotLoadedError(f"could not find a known module in task {task_info!r}")
 
         modname = candidates[0]
         if modname.startswith("ansible.builtin."):
             name = modname[16:]
-            res = getattr(builtin, name, None)
-            if res is None:
-                raise RoleNotLoadedError(f"Action builtin.{name} (from {modname}) not available in Transilience")
-            self.action_cls = res
-            self.transilience_name = f"builtin.{name}"
         else:
-            res = getattr(builtin, modname, None)
-            if res is None:
-                raise RoleNotLoadedError(f"Action builtin.{modname} not available in Transilience")
-            self.action_cls = res
-            self.transilience_name = f"builtin.{modname}"
+            name = modname
 
-        self.action_args = task[modname]
+        args: YamlDict
+        if isinstance(task_info[name], dict):
+            args = task_info[name]
+        else:
+            args = task_info.get("args", {})
+            # Fixups for command: in Ansible it can be a simple string instead
+            # of a dict
+            if name == "command":
+                args["argv"] = shlex.split(task_info[name])
+            else:
+                raise RoleNotLoadedError(f"ansible module argument for {modname} is not a dict")
 
-        if self.action_cls == builtin.command:
-            # Fixups for command: in ansible it can be a simple string instead of a dict
-            if isinstance(self.action_args, str):
-                self.action_args = {"argv": shlex.split(self.action_args)}
-            task_args = self.task.get("args")
-            if task_args is not None:
-                self.action_args.update(task_args)
-        elif self.action_cls == builtin.apt:
+        action_cls = getattr(builtin, name, None)
+        if action_cls is None:
+            raise RoleNotLoadedError(f"Action builtin.{name} (from {modname}) not available in Transilience")
+
+        transilience_name = f"builtin.{name}"
+
+        if action_cls == builtin.apt:
             # Fixups for apt: in ansible name can be a comma separated string
-            if isinstance(self.action_args["name"], str):
-                self.action_args["name"] = self.action_args["name"].split(',')
+            if isinstance(args.get("name"), str):
+                args["name"] = args["name"].split(',')
+
+        return cls(action_cls, args, task_info, transilience_name)
 
         # TODO: template
         # TODO: jinja2 markup in string args
@@ -69,7 +76,7 @@ class RoleAction:
 
     def get_start_func(self, handlers: Optional[Dict[str, Callable[None, []]]] = None):
         # If this task calls handlers, fetch the corresponding handler classes
-        notify = self.task.get("notify")
+        notify = self.task_info.get("notify")
         if not notify:
             notify_classes = None
         else:
@@ -80,7 +87,7 @@ class RoleAction:
                 notify_classes.append(handlers[name])
 
         def starter(role: Role):
-            role.add(self.action_cls(**self.action_args), name=self.task.get("name"), notify=notify_classes)
+            role.add(self.action_cls(**self.args), name=self.task_info.get("name"), notify=notify_classes)
         return starter
 
     def get_python(self, handlers: Optional[Dict[str, str]] = None) -> str:
@@ -88,7 +95,7 @@ class RoleAction:
             handlers = {}
 
         fmt_args = []
-        for k, v in self.action_args.items():
+        for k, v in self.args.items():
             if k == "mode" and isinstance(v, int):
                 fmt_args.append(f"{k}=0o{v:o}")
             else:
@@ -97,10 +104,10 @@ class RoleAction:
 
         add_args = [
             f"{self.transilience_name}({act_args})",
-            f"name={self.task['name']!r}"
+            f"name={self.task_info['name']!r}"
         ]
 
-        notify = self.task.get("notify")
+        notify = self.task_info.get("notify")
         if notify:
             if isinstance(notify, str):
                 notify = [notify]
@@ -118,7 +125,7 @@ class RoleAction:
 class RoleBuilder:
     def __init__(
             self,
-            name: str, tasks: List[RoleAction],
+            name: str, tasks: List[Task],
             handlers: Optional[Dict[str, "RoleBuilder"]] = None,
             with_facts: bool = True):
         self.name = name
@@ -218,7 +225,7 @@ class RoleLoader:
             raise RoleNotFoundError(self.name)
 
         for task_info in tasks:
-            self.main_tasks.append(RoleAction(task_info))
+            self.main_tasks.append(Task.create(task_info))
 
     def load_handlers(self):
         handlers_file = os.path.join(self.root, "handlers", "main.yaml")
@@ -230,7 +237,7 @@ class RoleLoader:
             return
 
         for info in handlers:
-            self.handlers[info["name"]] = RoleBuilder(info["name"], [RoleAction(info)], with_facts=False)
+            self.handlers[info["name"]] = RoleBuilder(info["name"], [Task.create(info)], with_facts=False)
 
     def load(self):
         self.load_handlers()
