@@ -94,8 +94,35 @@ class TestParameters(TestCase):
                 parameters.ParameterAny("bar"),
                 parameters.ParameterAny(32),
                 parameters.ParameterAny(False),
-            ])
+            ]),
         ])
 
-        self.assertEqual(repr(p), "['foo', 0o644, self.render_string('a,{{b}}').split(','), self.b, ['bar', 32, False]]")
+        self.assertEqual(
+                repr(p), "['foo', 0o644, self.render_string('a,{{b}}').split(','), self.b, ['bar', 32, False]]")
         self.assertEqual(p.get_value(role), ['foo', 0o644, ['a', 'rendered'], 'rendered', ['bar', 32, False]])
+
+    def test_parameter_dict(self):
+        role = MockRole(b="rendered")
+        p = parameters.ParameterDict({
+            "a": parameters.ParameterAny("foo"),
+            "b": parameters.ParameterOctal(0o644),
+            "c": parameters.ParameterTemplatedStringList("a,{{b}}"),
+            "d": parameters.ParameterVarReference("b"),
+            "e": parameters.ParameterList([
+                    parameters.ParameterAny("bar"),
+                    parameters.ParameterAny(32),
+                    parameters.ParameterAny(False),
+                 ]),
+        })
+
+        self.assertEqual(
+                repr(p),
+                "{'a': 'foo', 'b': 0o644, 'c': self.render_string('a,{{b}}').split(','),"
+                " 'd': self.b, 'e': ['bar', 32, False]}")
+        self.assertEqual(p.get_value(role), {
+            'a': 'foo',
+            'b': 0o644,
+            'c': ['a', 'rendered'],
+            'd': 'rendered',
+            'e': ['bar', 32, False],
+        })

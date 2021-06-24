@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Optional, List
+from typing import TYPE_CHECKING, Any, Optional, List, Dict
 import os
 import re
 
@@ -33,8 +33,10 @@ class Parameter:
                         return ParameterVarReference(mo.group(1))
                     else:
                         return ParameterTemplateString(value)
-            elif f.type == "List[str]":
+            elif f is not None and f.type == "List[str]":
                 return ParameterAny(value.split(','))
+            else:
+                return ParameterAny(value)
         elif isinstance(value, int):
             if f.metadata.get("octal"):
                 return ParameterOctal(value)
@@ -45,6 +47,11 @@ class Parameter:
             for val in value:
                 elements.append(cls.create(None, val))
             return ParameterList(elements)
+        elif isinstance(value, dict):
+            elements = {}
+            for name, val in value.items():
+                elements[name] = cls.create(None, val)
+            return ParameterDict(elements)
         else:
             return ParameterAny(value)
 
@@ -54,10 +61,24 @@ class ParameterList(Parameter):
         self.parameters = parameters
 
     def get_value(self, role: Role):
-        return list(p.get_value(role) for p in self.parameters)
+        return [p.get_value(role) for p in self.parameters]
 
     def __repr__(self):
         return f"[{', '.join(repr(p) for p in self.parameters)}]"
+
+
+class ParameterDict(Parameter):
+    def __init__(self, parameters: Dict[str, Parameter]):
+        self.parameters = parameters
+
+    def get_value(self, role: Role):
+        return {name: p.get_value(role) for name, p in self.parameters.items()}
+
+    def __repr__(self):
+        parts = []
+        for name, p in self.parameters.items():
+            parts.append(f"{name!r}: {p!r}")
+        return "{" + ', '.join(parts) + "}"
 
 
 class ParameterAny(Parameter):
