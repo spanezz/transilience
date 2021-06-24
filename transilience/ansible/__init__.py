@@ -5,12 +5,12 @@ import shlex
 import re
 import os
 import yaml
-from .actions import builtin, facts
-from .role import Role, with_facts
+from ..actions import builtin, facts
+from ..role import Role, with_facts
 
 if TYPE_CHECKING:
     from dataclasses import Field
-    from .actions import Action
+    from ..actions import Action
     YamlDict = Dict[str, Any]
 
 # Currently supported:
