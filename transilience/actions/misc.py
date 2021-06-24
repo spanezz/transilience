@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from dataclasses import dataclass
-from .action import Action, doc
+from .action import Action, scalar
 from . import builtin
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ class Noop(Action):
     """
     Do nothing, successfully.
     """
-    changed: bool = doc(False, "Set to True to pretend the action performed changes")
+    changed: bool = scalar(False, "Set to True to pretend the action performed changes")
 
     def summary(self):
         return "Do nothing"

@@ -6,7 +6,7 @@ import shutil
 import os
 from .common import FileAction, PathObject
 from . import builtin
-from .action import doc
+from .action import scalar
 
 if TYPE_CHECKING:
     import transilience.system
@@ -26,11 +26,11 @@ class File(FileAction):
      * modification_time_format
      * unsafe_writes
     """
-    path: Optional[str] = doc(None, "Path to the file or directory being managed")
-    state: str = doc("file", "Valid: file, directory, link, hard, touch, absent")
-    recurse: bool = doc(False, "Recursively apply attributes (only used with state=directory)")
-    src: Optional[str] = doc(None, "target of the link or hard link")
-    follow: bool = doc(True, "set attributes of symlink destinations instead of the symlinks themselves")
+    path: Optional[str] = scalar(None, "Path to the file or directory being managed")
+    state: str = scalar("file", "Valid: file, directory, link, hard, touch, absent")
+    recurse: bool = scalar(False, "Recursively apply attributes (only used with state=directory)")
+    src: Optional[str] = scalar(None, "target of the link or hard link")
+    follow: bool = scalar(True, "set attributes of symlink destinations instead of the symlinks themselves")
     force: bool = False
 
     def __post_init__(self):

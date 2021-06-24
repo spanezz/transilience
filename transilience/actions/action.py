@@ -18,8 +18,11 @@ if TYPE_CHECKING:
     import transilience.system
 
 
-def doc(default: Any, doc: str, **kw):
-    return field(default=default, metadata={"doc": doc})
+def scalar(default: Any, doc: str, octal: bool = False):
+    metadata = {"doc": doc}
+    if octal:
+        metadata["octal"] = True
+    return field(default=default, metadata=metadata)
 
 
 class ResultState:
@@ -81,7 +84,7 @@ class Action:
     run, and sent back with its results.
     """
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
-    check: bool = doc(False, "when True, check if the action would perform changes, but do nothing")
+    check: bool = scalar(False, "when True, check if the action would perform changes, but do nothing")
     result: Result = field(default_factory=Result)
 
     def __post_init__(self):

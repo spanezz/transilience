@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable
+from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable, Union
+from dataclasses import fields
 import shlex
 import re
 import os
@@ -20,12 +21,69 @@ class RoleNotLoadedError(Exception):
     pass
 
 
+class Parameter:
+    def __init__(self, name: str):
+        self.name = name
+
+
+class ParameterAny(Parameter):
+    def __init__(self, name: str, value: Any):
+        super().__init__(name)
+        self.value = value
+
+    def __repr__(self):
+        return repr(self.value)
+
+
+class ParameterOctal(Parameter):
+    def __init__(self, name: str, value: Any):
+        super().__init__(name)
+        self.value = value
+
+    def __repr__(self):
+        if isinstance(self.value, int):
+            return f"0o{self.value:o}"
+        else:
+            return repr(self.value)
+
+
+class ParameterStringList(Parameter):
+    def __init__(self, name: str, value: Union[str, List[str]]):
+        super().__init__(name)
+        if isinstance(value, str):
+            self.value = value.split(",")
+        else:
+            self.value = value
+
+    def __repr__(self):
+        return repr(self.value)
+
+
 class Task:
+    """
+    Information extracted from a task in an Ansible playbook
+    """
     def __init__(self, action_cls: Type[Action], args: YamlDict, task_info: YamlDict, transilience_name: str):
         self.action_cls = action_cls
-        self.args = args
+        self.parameters: Dict[str, Parameter] = {}
         self.task_info = task_info
         self.transilience_name = transilience_name
+
+        # Build parameter list
+        for f in fields(self.action_cls):
+            value = args.pop(f.name, None)
+            if value is None:
+                continue
+
+            if f.type == List[str]:
+                self.parameters[f.name] = ParameterStringList(f.name, value)
+            elif f.metadata.get("octal"):
+                self.parameters[f.name] = ParameterOctal(f.name, value)
+            else:
+                self.parameters[f.name] = ParameterAny(f.name, value)
+
+        if args:
+            raise RoleNotLoadedError(f"Task {task_info!r} has unrecognized parameters {args!r}")
 
     @classmethod
     def create(cls, task_info: YamlDict):
@@ -62,11 +120,6 @@ class Task:
 
         transilience_name = f"builtin.{name}"
 
-        if action_cls == builtin.apt:
-            # Fixups for apt: in ansible name can be a comma separated string
-            if isinstance(args.get("name"), str):
-                args["name"] = args["name"].split(',')
-
         return cls(action_cls, args, task_info, transilience_name)
 
         # TODO: template
@@ -86,8 +139,10 @@ class Task:
             for name in notify:
                 notify_classes.append(handlers[name])
 
+        args = {name: p.value for name, p in self.parameters.items()}
+
         def starter(role: Role):
-            role.add(self.action_cls(**self.args), name=self.task_info.get("name"), notify=notify_classes)
+            role.add(self.action_cls(**args), name=self.task_info.get("name"), notify=notify_classes)
         return starter
 
     def get_python(self, handlers: Optional[Dict[str, str]] = None) -> str:
@@ -95,11 +150,8 @@ class Task:
             handlers = {}
 
         fmt_args = []
-        for k, v in self.args.items():
-            if k == "mode" and isinstance(v, int):
-                fmt_args.append(f"{k}=0o{v:o}")
-            else:
-                fmt_args.append(f"{k}={v!r}")
+        for name, parm in self.parameters.items():
+            fmt_args.append(f"{name}={parm!r}")
         act_args = ", ".join(fmt_args)
 
         add_args = [
