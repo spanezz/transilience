@@ -64,7 +64,7 @@ class ParameterOctal(ParameterAny):
         if isinstance(self.value, int):
             return f"0o{self.value:o}"
         else:
-            super().__repr__()
+            return super().__repr__()
 
 
 class ParameterTemplatedStringList(ParameterAny):
