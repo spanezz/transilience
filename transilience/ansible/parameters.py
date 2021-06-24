@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Optional, List, Dict
+from typing import TYPE_CHECKING, Any, Optional, List, Dict, Sequence
 import os
 import re
 
 if TYPE_CHECKING:
     from dataclasses import Field
     from ..role import Role
+    from .. import template
 
 
 re_template_start = re.compile(r"{{|{%|{#")
@@ -13,6 +14,12 @@ re_single_var = re.compile(r"^{{\s*(\w*)\s*}}$")
 
 
 class Parameter:
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        """
+        List the name of template variables used by this parameter
+        """
+        return ()
+
     @classmethod
     def create(cls, f: Optional[Field], value: Any):
         if isinstance(value, str):
@@ -60,6 +67,10 @@ class ParameterList(Parameter):
     def __init__(self, parameters: List[Parameter]):
         self.parameters = parameters
 
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        for p in self.parameters:
+            yield from p.list_role_vars(engine)
+
     def get_value(self, role: Role):
         return [p.get_value(role) for p in self.parameters]
 
@@ -70,6 +81,10 @@ class ParameterList(Parameter):
 class ParameterDict(Parameter):
     def __init__(self, parameters: Dict[str, Parameter]):
         self.parameters = parameters
+
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        for p in self.parameters.values():
+            yield from p.list_role_vars(engine)
 
     def get_value(self, role: Role):
         return {name: p.get_value(role) for name, p in self.parameters.items()}
@@ -101,6 +116,9 @@ class ParameterOctal(ParameterAny):
 
 
 class ParameterTemplatedStringList(ParameterAny):
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        return engine.list_string_template_vars(self.value)
+
     def __repr__(self):
         return f"self.render_string({self.value!r}).split(',')"
 
@@ -109,6 +127,9 @@ class ParameterTemplatedStringList(ParameterAny):
 
 
 class ParameterVarReferenceStringList(ParameterAny):
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        yield self.value
+
     def __repr__(self):
         return f"self.{self.value}.split(',')"
 
@@ -117,6 +138,10 @@ class ParameterVarReferenceStringList(ParameterAny):
 
 
 class ParameterTemplatePath(ParameterAny):
+    # TODO: we need to clarify path lookup rules coordinating with Roles
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        yield from engine.list_file_template_vars(os.path.join("templates", self.value))
+
     def __repr__(self):
         path = os.path.join("templates", self.value)
         return f"self.render_file({path!r})"
@@ -126,6 +151,9 @@ class ParameterTemplatePath(ParameterAny):
 
 
 class ParameterVarReference(ParameterAny):
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        yield self.value
+
     def __repr__(self):
         return f"self.{self.value}"
 
@@ -134,6 +162,9 @@ class ParameterVarReference(ParameterAny):
 
 
 class ParameterTemplateString(ParameterAny):
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        return engine.list_string_template_vars(self.value)
+
     def __repr__(self):
         return f"self.render_string({self.value!r})"
 

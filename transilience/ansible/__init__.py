@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable
+from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable, Set, Sequence
 from dataclasses import fields
 import shlex
 import re
@@ -8,6 +8,7 @@ import yaml
 from ..actions import builtin, facts
 from ..role import Role, with_facts
 from .parameters import Parameter, ParameterTemplatePath
+from .. import template
 
 if TYPE_CHECKING:
     from dataclasses import Field
@@ -57,6 +58,13 @@ class Task:
 
     def make_parameter(self, f: Field, value: Any):
         return Parameter.create(f, value)
+
+    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+        """
+        List the names of role variables used by this task
+        """
+        for p in self.parameters.values():
+            yield from p.list_role_vars(engine)
 
     @classmethod
     def create(cls, task_info: YamlDict):
@@ -198,6 +206,7 @@ class RoleBuilder:
     def get_python_code_module(self) -> List[str]:
         lines = [
             "from __future__ import annotations",
+            "from typing import Any",
             "from transilience import role",
             "from transilience.actions import builtin, facts",
             "",
@@ -229,6 +238,19 @@ class RoleBuilder:
             name = self.get_python_name()
 
         lines.append(f"class {name}(role.Role):")
+
+        engine = template.Engine()
+        role_vars: Set[str] = set()
+        for task in self.tasks:
+            role_vars.update(task.list_role_vars(engine))
+
+        role_vars -= {f.name for f in fields(facts.Platform)}
+
+        if role_vars:
+            lines.append("    # Role variables used by templates")
+            for name in sorted(role_vars):
+                lines.append(f"    {name}: Any = None")
+            lines.append("")
 
         if self.with_facts:
             lines.append("    def all_facts_available(self):")
