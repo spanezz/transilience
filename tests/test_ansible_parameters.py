@@ -82,3 +82,20 @@ class TestParameters(TestCase):
         p = P("a,{{b}},c")
         self.assertEqual(repr(p), "self.render_string('a,{{b}},c')")
         self.assertEqual(p.get_value(role), "a,rendered,c")
+
+    def test_parameter_list(self):
+        role = MockRole(b="rendered")
+        p = parameters.ParameterList([
+            parameters.ParameterAny("foo"),
+            parameters.ParameterOctal(0o644),
+            parameters.ParameterTemplatedStringList("a,{{b}}"),
+            parameters.ParameterVarReference("b"),
+            parameters.ParameterList([
+                parameters.ParameterAny("bar"),
+                parameters.ParameterAny(32),
+                parameters.ParameterAny(False),
+            ])
+        ])
+
+        self.assertEqual(repr(p), "['foo', 0o644, self.render_string('a,{{b}}').split(','), self.b, ['bar', 32, False]]")
+        self.assertEqual(p.get_value(role), ['foo', 0o644, ['a', 'rendered'], 'rendered', ['bar', 32, False]])

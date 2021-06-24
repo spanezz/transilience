@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, List
 import os
 import re
 
@@ -40,8 +40,24 @@ class Parameter:
                 return ParameterOctal(value)
             else:
                 return ParameterAny(value)
+        elif isinstance(value, list):
+            elements = []
+            for val in value:
+                elements.append(cls.create(None, val))
+            return ParameterList(elements)
         else:
             return ParameterAny(value)
+
+
+class ParameterList(Parameter):
+    def __init__(self, parameters: List[Parameter]):
+        self.parameters = parameters
+
+    def get_value(self, role: Role):
+        return list(p.get_value(role) for p in self.parameters)
+
+    def __repr__(self):
+        return f"[{', '.join(repr(p) for p in self.parameters)}]"
 
 
 class ParameterAny(Parameter):
