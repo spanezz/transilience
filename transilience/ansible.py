@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable, Union
+from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable
 from dataclasses import fields
 import shlex
 import re
@@ -13,6 +13,18 @@ if TYPE_CHECKING:
     from .actions import Action
     YamlDict = Dict[str, Any]
 
+# Currently supported:
+#  - actions in Transilience's builtin.* namespace
+#  - arguments not supported by the Transilience action are detected and raise an exception
+#  - template action (without block_start_string, block_end_string,
+#    lstrip_blocks, newline_sequence, output_encoding, trim_blocks, validate,
+#    variable_end_string, variable_start_string)
+#  - jinja templates in string parameters (not yet in strings contained inside
+#    lists and dicts)
+#  - variables from facts provided by transilience.actions.facts.Platform
+#  - notify/handlers if defined inside thet same role (cannot notify
+#    handlers from other roles)
+
 
 class RoleNotFoundError(Exception):
     pass
@@ -22,9 +34,43 @@ class RoleNotLoadedError(Exception):
     pass
 
 
+re_template_start = re.compile(r"{{|{%|{#")
+re_single_var = re.compile(r"^{{\s*(\w*)\s*}}$")
+
+
 class Parameter:
     def __init__(self, name: str):
         self.name = name
+
+    @classmethod
+    def create(self, f: Field, value: Any):
+        if isinstance(value, str):
+            # Hook for templated strings
+            #
+            # For reference, Jinja2 template detection in Ansible is in
+            # template/__init__.py look for Templar.is_possibly_template,
+            # Templar.is_template, and is_template
+            if re_template_start.search(value):
+                mo = re_single_var.match(value)
+                if f.type == "List[str]":
+                    if mo:
+                        return ParameterVarReferenceStringList(f.name, mo.group(1))
+                    else:
+                        return ParameterTemplatedStringList(f.name, value)
+                else:
+                    if mo:
+                        return ParameterVarReference(f.name, mo.group(1))
+                    else:
+                        return ParameterTemplateString(f.name, value)
+            elif f.type == "List[str]":
+                return ParameterAny(f.name, value.split(','))
+        elif isinstance(value, int):
+            if f.metadata.get("octal"):
+                return ParameterOctal(f.name, value)
+            else:
+                return ParameterAny(f.name, value)
+        else:
+            return ParameterAny(f.name, value)
 
 
 class ParameterAny(Parameter):
@@ -47,11 +93,20 @@ class ParameterOctal(ParameterAny):
             super().__repr__()
 
 
-class ParameterStringList(ParameterAny):
-    def __init__(self, name: str, value: Union[str, List[str]]):
-        if isinstance(value, str):
-            value = value.split(",")
-        super().__init__(name, value)
+class ParameterTemplatedStringList(ParameterAny):
+    def __repr__(self):
+        return f"self.render_string({self.value!r}).split(',')"
+
+    def get_value(self, role: Role):
+        return role.render_string(self.value).split(',')
+
+
+class ParameterVarReferenceStringList(ParameterAny):
+    def __repr__(self):
+        return f"self.{self.value}.split(',')"
+
+    def get_value(self, role: Role):
+        return getattr(role, self.value).split(',')
 
 
 class ParameterTemplatePath(ParameterAny):
@@ -71,11 +126,7 @@ class ParameterVarReference(ParameterAny):
         return getattr(role, self.value)
 
 
-class ParameterTemplateString(Parameter):
-    def __init__(self, name: str, value: str):
-        super().__init__(name)
-        self.value = value
-
+class ParameterTemplateString(ParameterAny):
     def __repr__(self):
         return f"self.render_string({self.value!r})"
 
@@ -103,29 +154,8 @@ class Task:
         if args:
             raise RoleNotLoadedError(f"Task {task_info!r} has unrecognized parameters {args!r}")
 
-    re_template_start = re.compile(r"{{|{%|{#")
-    re_single_var = re.compile(r"^{{\s*(\w*)\s*}}$")
-
     def make_parameter(self, f: Field, value: Any):
-        if isinstance(value, str):
-            # Hook for templated strings
-            #
-            # For reference, Jinja2 template detection in Ansible is in
-            # template/__init__.py look for Templar.is_possibly_template,
-            # Templar.is_template, and is_template
-            if self.re_template_start.search(value):
-                mo = self.re_single_var.match(value)
-                if mo:
-                    return ParameterVarReference(f.name, mo.group(1))
-                else:
-                    return ParameterTemplateString(f.name, value)
-
-        if f.type == "List[str]":
-            return ParameterStringList(f.name, value)
-        elif f.metadata.get("octal"):
-            return ParameterOctal(f.name, value)
-        else:
-            return ParameterAny(f.name, value)
+        return Parameter.create(f, value)
 
     @classmethod
     def create(cls, task_info: YamlDict):
