@@ -10,7 +10,7 @@ from .role import Role, with_facts
 
 if TYPE_CHECKING:
     from dataclasses import Field
-    from .action import Action
+    from .actions import Action
     YamlDict = Dict[str, Any]
 
 
@@ -32,44 +32,55 @@ class ParameterAny(Parameter):
         super().__init__(name)
         self.value = value
 
+    def get_value(self, role: Role):
+        return self.value
+
     def __repr__(self):
         return repr(self.value)
 
 
-class ParameterOctal(Parameter):
-    def __init__(self, name: str, value: Any):
-        super().__init__(name)
-        self.value = value
-
+class ParameterOctal(ParameterAny):
     def __repr__(self):
         if isinstance(self.value, int):
             return f"0o{self.value:o}"
         else:
-            return repr(self.value)
+            super().__repr__()
 
 
-class ParameterStringList(Parameter):
+class ParameterStringList(ParameterAny):
     def __init__(self, name: str, value: Union[str, List[str]]):
-        super().__init__(name)
         if isinstance(value, str):
-            self.value = value.split(",")
-        else:
-            self.value = value
+            value = value.split(",")
+        super().__init__(name, value)
 
+
+class ParameterTemplatePath(ParameterAny):
     def __repr__(self):
-        return repr(self.value)
+        path = os.path.join("templates", self.value)
+        return f"self.render_file({path!r})"
+
+    def get_value(self, role: Role):
+        return role.render_file(os.path.join("templates", self.value))
 
 
-class ParameterTemplatePath(Parameter):
+class ParameterVarReference(ParameterAny):
+    def __repr__(self):
+        return f"self.{self.value}"
+
+    def get_value(self, role: Role):
+        return getattr(role, self.value)
+
+
+class ParameterTemplateString(Parameter):
     def __init__(self, name: str, value: str):
         super().__init__(name)
         self.value = value
 
     def __repr__(self):
-        path = os.path.join("templates", self.value)
-        return f"self.render_file({path!r})"
+        return f"self.render_string({self.value!r})"
 
-    # TODO: needs hooks also when using it to compose a closure
+    def get_value(self, role: Role):
+        return role.render_string(self.value)
 
 
 class Task:
@@ -92,8 +103,24 @@ class Task:
         if args:
             raise RoleNotLoadedError(f"Task {task_info!r} has unrecognized parameters {args!r}")
 
+    re_template_start = re.compile(r"{{|{%|{#")
+    re_single_var = re.compile(r"^{{\s*(\w*)\s*}}$")
+
     def make_parameter(self, f: Field, value: Any):
-        if f.type == List[str]:
+        if isinstance(value, str):
+            # Hook for templated strings
+            #
+            # For reference, Jinja2 template detection in Ansible is in
+            # template/__init__.py look for Templar.is_possibly_template,
+            # Templar.is_template, and is_template
+            if self.re_template_start.search(value):
+                mo = self.re_single_var.match(value)
+                if mo:
+                    return ParameterVarReference(f.name, mo.group(1))
+                else:
+                    return ParameterTemplateString(f.name, value)
+
+        if f.type == "List[str]":
             return ParameterStringList(f.name, value)
         elif f.metadata.get("octal"):
             return ParameterOctal(f.name, value)
@@ -140,12 +167,7 @@ class Task:
 
             return cls(action_cls, args, task_info, transilience_name)
 
-        # TODO: template
-        # TODO: jinja2 markup in string args
-        # TODO: file lookup for copy source
-        # TODO: role arguments? Vars? (vars from facts are supported)
-
-    def get_start_func(self, handlers: Optional[Dict[str, Callable[None, []]]] = None):
+    def get_start_func(self, handlers: Optional[Dict[str, Callable[[], None]]] = None):
         # If this task calls handlers, fetch the corresponding handler classes
         notify = self.task_info.get("notify")
         if not notify:
@@ -157,9 +179,8 @@ class Task:
             for name in notify:
                 notify_classes.append(handlers[name])
 
-        args = {name: p.value for name, p in self.parameters.items()}
-
         def starter(role: Role):
+            args = {name: p.get_value(role) for name, p in self.parameters.items()}
             role.add(self.action_cls(**args), name=self.task_info.get("name"), notify=notify_classes)
         return starter
 
