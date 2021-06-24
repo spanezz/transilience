@@ -9,6 +9,7 @@ from .actions import builtin, facts
 from .role import Role, with_facts
 
 if TYPE_CHECKING:
+    from dataclasses import Field
     from .action import Action
     YamlDict = Dict[str, Any]
 
@@ -59,6 +60,18 @@ class ParameterStringList(Parameter):
         return repr(self.value)
 
 
+class ParameterTemplatePath(Parameter):
+    def __init__(self, name: str, value: str):
+        super().__init__(name)
+        self.value = value
+
+    def __repr__(self):
+        path = os.path.join("templates", self.value)
+        return f"self.render_file({path!r})"
+
+    # TODO: needs hooks also when using it to compose a closure
+
+
 class Task:
     """
     Information extracted from a task in an Ansible playbook
@@ -74,16 +87,18 @@ class Task:
             value = args.pop(f.name, None)
             if value is None:
                 continue
-
-            if f.type == List[str]:
-                self.parameters[f.name] = ParameterStringList(f.name, value)
-            elif f.metadata.get("octal"):
-                self.parameters[f.name] = ParameterOctal(f.name, value)
-            else:
-                self.parameters[f.name] = ParameterAny(f.name, value)
+            self.parameters[f.name] = self.make_parameter(f, value)
 
         if args:
             raise RoleNotLoadedError(f"Task {task_info!r} has unrecognized parameters {args!r}")
+
+    def make_parameter(self, f: Field, value: Any):
+        if f.type == List[str]:
+            return ParameterStringList(f.name, value)
+        elif f.metadata.get("octal"):
+            return ParameterOctal(f.name, value)
+        else:
+            return ParameterAny(f.name, value)
 
     @classmethod
     def create(cls, task_info: YamlDict):
@@ -114,13 +129,16 @@ class Task:
             else:
                 raise RoleNotLoadedError(f"ansible module argument for {modname} is not a dict")
 
-        action_cls = getattr(builtin, name, None)
-        if action_cls is None:
-            raise RoleNotLoadedError(f"Action builtin.{name} (from {modname}) not available in Transilience")
+        if name == "template":
+            return TaskTemplate(args, task_info)
+        else:
+            action_cls = getattr(builtin, name, None)
+            if action_cls is None:
+                raise RoleNotLoadedError(f"Action builtin.{name} not available in Transilience")
 
-        transilience_name = f"builtin.{name}"
+            transilience_name = f"builtin.{name}"
 
-        return cls(action_cls, args, task_info, transilience_name)
+            return cls(action_cls, args, task_info, transilience_name)
 
         # TODO: template
         # TODO: jinja2 markup in string args
@@ -172,6 +190,17 @@ class Task:
                 add_args.append(f"notify=[{', '.join(notify_classes)}]")
 
         return f"self.add({', '.join(add_args)})"
+
+
+class TaskTemplate(Task):
+    def __init__(self, args: YamlDict, task_info: YamlDict):
+        super().__init__(builtin.copy, args, task_info, "builtin.copy")
+
+    def make_parameter(self, f: Field, value: Any):
+        if f.name == "src":
+            return ParameterTemplatePath(f, value)
+        else:
+            return super().make_parameter(f, value)
 
 
 class RoleBuilder:
