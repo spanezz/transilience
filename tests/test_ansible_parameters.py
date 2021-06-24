@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Any
 from unittest import TestCase
-from functools import partial
 from transilience.ansible import parameters
 from transilience.template import Engine
 
@@ -22,7 +21,7 @@ class MockRole:
 
 class TestParameters(TestCase):
     def test_any(self):
-        P = partial(parameters.ParameterAny, "name")
+        P = parameters.ParameterAny
 
         for value in (None, "string", 123, 0o123, [1, 2, 3], {"a": "b"}):
             p = P(value)
@@ -30,7 +29,7 @@ class TestParameters(TestCase):
             self.assertEqual(p.get_value(None), value)
 
     def test_octal(self):
-        P = partial(parameters.ParameterOctal, "name")
+        P = parameters.ParameterOctal
 
         p = P(None)
         self.assertEqual(repr(p), "None")
@@ -46,7 +45,7 @@ class TestParameters(TestCase):
 
     def test_templated_string_list(self):
         role = MockRole(b="rendered")
-        P = partial(parameters.ParameterTemplatedStringList, "name")
+        P = parameters.ParameterTemplatedStringList
 
         p = P("a,{{b}},c")
         self.assertEqual(repr(p), "self.render_string('a,{{b}},c').split(',')")
@@ -54,7 +53,7 @@ class TestParameters(TestCase):
 
     def test_var_reference_string_list(self):
         role = MockRole(varname="a,b,c")
-        P = partial(parameters.ParameterVarReferenceStringList, "name")
+        P = parameters.ParameterVarReferenceStringList
 
         p = P("varname")
         self.assertEqual(repr(p), "self.varname.split(',')")
@@ -62,7 +61,7 @@ class TestParameters(TestCase):
 
     def test_template_path(self):
         role = MockRole()
-        P = partial(parameters.ParameterTemplatePath, "name")
+        P = parameters.ParameterTemplatePath
 
         p = P("path/file")
         self.assertEqual(repr(p), "self.render_file('templates/path/file')")
@@ -70,7 +69,7 @@ class TestParameters(TestCase):
 
     def test_var_reference(self):
         role = MockRole(varname="a,b,c")
-        P = partial(parameters.ParameterVarReference, "name")
+        P = parameters.ParameterVarReference
 
         p = P("varname")
         self.assertEqual(repr(p), "self.varname")
@@ -78,7 +77,7 @@ class TestParameters(TestCase):
 
     def test_template_string(self):
         role = MockRole(b="rendered")
-        P = partial(parameters.ParameterTemplateString, "name")
+        P = parameters.ParameterTemplateString
 
         p = P("a,{{b}},c")
         self.assertEqual(repr(p), "self.render_string('a,{{b}},c')")

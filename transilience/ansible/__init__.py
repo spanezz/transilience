@@ -150,7 +150,7 @@ class TaskTemplate(Task):
 
     def make_parameter(self, f: Field, value: Any):
         if f.name == "src":
-            return ParameterTemplatePath(f, value)
+            return ParameterTemplatePath(value)
         else:
             return super().make_parameter(f, value)
 

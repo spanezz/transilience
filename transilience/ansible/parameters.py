@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 import os
 import re
 
@@ -13,11 +13,8 @@ re_single_var = re.compile(r"^{{\s*(\w*)\s*}}$")
 
 
 class Parameter:
-    def __init__(self, name: str):
-        self.name = name
-
     @classmethod
-    def create(self, f: Field, value: Any):
+    def create(cls, f: Optional[Field], value: Any):
         if isinstance(value, str):
             # Hook for templated strings
             #
@@ -26,30 +23,29 @@ class Parameter:
             # Templar.is_template, and is_template
             if re_template_start.search(value):
                 mo = re_single_var.match(value)
-                if f.type == "List[str]":
+                if f is not None and f.type == "List[str]":
                     if mo:
-                        return ParameterVarReferenceStringList(f.name, mo.group(1))
+                        return ParameterVarReferenceStringList(mo.group(1))
                     else:
-                        return ParameterTemplatedStringList(f.name, value)
+                        return ParameterTemplatedStringList(value)
                 else:
                     if mo:
-                        return ParameterVarReference(f.name, mo.group(1))
+                        return ParameterVarReference(mo.group(1))
                     else:
-                        return ParameterTemplateString(f.name, value)
+                        return ParameterTemplateString(value)
             elif f.type == "List[str]":
-                return ParameterAny(f.name, value.split(','))
+                return ParameterAny(value.split(','))
         elif isinstance(value, int):
             if f.metadata.get("octal"):
-                return ParameterOctal(f.name, value)
+                return ParameterOctal(value)
             else:
-                return ParameterAny(f.name, value)
+                return ParameterAny(value)
         else:
-            return ParameterAny(f.name, value)
+            return ParameterAny(value)
 
 
 class ParameterAny(Parameter):
-    def __init__(self, name: str, value: Any):
-        super().__init__(name)
+    def __init__(self, value: Any):
         self.value = value
 
     def get_value(self, role: Role):
