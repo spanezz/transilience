@@ -6,7 +6,6 @@ import re
 if TYPE_CHECKING:
     from dataclasses import Field
     from ..role import Role
-    from .. import template
 
 
 re_template_start = re.compile(r"{{|{%|{#")
@@ -138,16 +137,17 @@ class ParameterVarReferenceStringList(ParameterAny):
 
 
 class ParameterTemplatePath(ParameterAny):
-    # TODO: we need to clarify path lookup rules coordinating with Roles
     def list_role_vars(self, role: Role) -> Sequence[str]:
-        yield from role.template_engine.list_file_template_vars(os.path.join("templates", self.value))
+        path = role.lookup_file(os.path.join("templates", self.value))
+        yield from role.template_engine.list_file_template_vars(path)
 
     def __repr__(self):
         path = os.path.join("templates", self.value)
         return f"self.render_file({path!r})"
 
     def get_value(self, role: Role):
-        return role.render_file(os.path.join("templates", self.value))
+        path = role.lookup_file(os.path.join("templates", self.value))
+        return role.render_file(path)
 
 
 class ParameterVarReference(ParameterAny):

@@ -21,9 +21,11 @@ if TYPE_CHECKING:
 #  - template action (without block_start_string, block_end_string,
 #    lstrip_blocks, newline_sequence, output_encoding, trim_blocks, validate,
 #    variable_end_string, variable_start_string)
-#  - jinja templates in string parameters (not yet in strings contained inside
-#    lists and dicts)
+#  - jinja templates in string parameters, even when present inside lists and
+#    dicts and nested lists and dicts
 #  - variables from facts provided by transilience.actions.facts.Platform
+#  - variables used in templates used in jitsi templates, both in strings and
+#    in files
 #  - notify/handlers if defined inside thet same role (cannot notify
 #    handlers from other roles)
 
@@ -59,12 +61,12 @@ class Task:
     def make_parameter(self, f: Field, value: Any):
         return Parameter.create(f, value)
 
-    def list_role_vars(self, engine: template.Engine) -> Sequence[str]:
+    def list_role_vars(self, role: Role) -> Sequence[str]:
         """
         List the names of role variables used by this task
         """
         for p in self.parameters.values():
-            yield from p.list_role_vars(engine)
+            yield from p.list_role_vars(role)
 
     @classmethod
     def create(cls, task_info: YamlDict):
@@ -239,10 +241,9 @@ class RoleBuilder:
 
         lines.append(f"class {name}(role.Role):")
 
-        engine = template.Engine()
         role_vars: Set[str] = set()
         for task in self.tasks:
-            role_vars.update(task.list_role_vars(engine))
+            role_vars.update(task.list_role_vars(role))
 
         role_vars -= {f.name for f in fields(facts.Platform)}
 
