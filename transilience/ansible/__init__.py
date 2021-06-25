@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Callable, Set, Sequence
-from dataclasses import fields
+from dataclasses import dataclass, fields
 import shlex
 import re
 import os
@@ -8,7 +8,6 @@ import yaml
 from ..actions import builtin, facts
 from ..role import Role, with_facts
 from .parameters import Parameter, ParameterTemplatePath
-from .. import template
 
 if TYPE_CHECKING:
     from dataclasses import Field
@@ -197,11 +196,13 @@ class RoleBuilder:
                 "start": lambda host: None,
                 "all_facts_available": role_main
             })
+            role_cls = dataclass(role_cls)
             role_cls = with_facts(facts.Platform)(role_cls)
         else:
             role_cls = type(self.name, (Role,), {
                 "start": role_main
             })
+            role_cls = dataclass(role_cls)
 
         return role_cls
 
@@ -231,6 +232,8 @@ class RoleBuilder:
     def get_python_code_role(self, name=None, handlers: Optional[Dict[str, str]] = None) -> List[str]:
         if handlers is None:
             handlers = {}
+
+        role = self.get_role_class()(name=self.name)
 
         lines = []
         if self.with_facts:

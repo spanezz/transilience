@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, make_dataclass, fields, asdict
 import contextlib
 import warnings
 import uuid
+import os
 from . import actions
 from .system import PipelineInfo
 from .runner import PendingAction
@@ -71,9 +72,15 @@ class Role:
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     # Name used to display the role
     name: Optional[str] = None
+    # Root directory of the filesystem area where role-related files and
+    # templates are found.
+    # If not provided it defaults to roles/{name}/
+    root: Optional[str] = None
 
     def __post_init__(self):
-        self.template_engine: template.Engine = template.Engine()
+        if self.root is None:
+            self.root = os.path.join("roles", self.name)
+        self.template_engine: template.Engine = template.Engine([self.root])
         self._runner: "Runner"
         # UUIDs of actions sent and not received yet
         self._pending: Set[str] = set()
