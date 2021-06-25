@@ -130,6 +130,10 @@ class Task:
 
 
 class TaskTemplate(Task):
+    """
+    Task that maps ansible.builtin.template module to a Transilince
+    builtin.copy action, plus template rendering on the Role's side
+    """
     def __init__(self, args: YamlDict, task_info: YamlDict):
         super().__init__(builtin.copy, args, task_info, "builtin.copy")
 
