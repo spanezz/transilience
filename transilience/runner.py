@@ -6,7 +6,6 @@ import warnings
 import logging
 import time
 import sys
-from . import template
 from .system.local import Local
 from .actions import builtin, ResultState
 from .actions.facts import Facts
@@ -109,7 +108,6 @@ class Runner:
     def __init__(self, host: Union[Host, System], check_mode: bool = False):
         self.started = time.time()
         self.check_mode = check_mode
-        self.template_engine = template.Engine()
         if isinstance(host, Host):
             self.host = host
             self.system = host._make_system()

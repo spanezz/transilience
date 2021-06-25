@@ -10,10 +10,10 @@ from .runner import PendingAction
 from .actions.facts import Facts
 from .actions import ResultState
 from .actions.misc import Fail
+from . import template
 
 if TYPE_CHECKING:
     from .runner import Runner
-    from transilience import template
 
 
 def with_facts(facts: Union[Facts, Sequence[Facts]] = ()):
@@ -73,7 +73,7 @@ class Role:
     name: Optional[str] = None
 
     def __post_init__(self):
-        self.template_engine: template.Engine
+        self.template_engine: template.Engine = template.Engine()
         self._runner: "Runner"
         # UUIDs of actions sent and not received yet
         self._pending: Set[str] = set()
@@ -214,7 +214,6 @@ class Role:
 
     def set_runner(self, runner: "Runner"):
         self._runner = runner
-        self.template_engine = runner.template_engine
 
     def main(self):
         warnings.warn("Role.main() has been renamed to Role.start()", DeprecationWarning)
@@ -223,7 +222,14 @@ class Role:
     def start(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")
 
-    def render_file(self, path: str, **kwargs):
+    def lookup_file(self, path: str) -> str:
+        """
+        Resolve the given path according to where this role expects input files
+        to be
+        """
+        return path
+
+    def render_file(self, path: str, **kwargs) -> str:
         """
         Render a Jinja2 template from a file, using as context all Role fields,
         plus the given kwargs.
@@ -232,7 +238,7 @@ class Role:
         ctx.update(kwargs)
         return self.template_engine.render_file(path, ctx)
 
-    def render_string(self, template: str, **kwargs):
+    def render_string(self, template: str, **kwargs) -> str:
         """
         Render a Jinja2 template from a string, using as context all Role fields,
         plus the given kwargs.
