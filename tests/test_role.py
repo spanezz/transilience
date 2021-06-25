@@ -17,6 +17,7 @@ class MockRunner:
 
     def add_role(self, role_cls: Union[str, Type[role.Role]], **kw):
         name = role_cls.__name__
+        kw.setdefault("name", name)
         role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
@@ -142,7 +143,7 @@ class TestFacts(unittest.TestCase):
             value4: int = 4
 
         self.assertEqual(Role2._facts, (F1, F2))
-        r = Role2()
+        r = Role2(name="test")
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value2, 2)
         self.assertEqual(r.value3, 3)
@@ -162,7 +163,7 @@ class TestFacts(unittest.TestCase):
             value4: int = 4
 
         self.assertEqual(Role2._facts, (F1,))
-        r = Role2()
+        r = Role2(name="test")
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value3, 3)
         self.assertEqual(r.value4, 4)
@@ -185,7 +186,7 @@ class TestFacts(unittest.TestCase):
             value4: int = 4
 
         self.assertEqual(Role2._facts, (F1, F2))
-        r = Role2()
+        r = Role2(name="test")
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value2, 2)
         self.assertEqual(r.value3, 3)

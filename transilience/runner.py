@@ -186,6 +186,7 @@ class Runner:
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         name = role_cls.__name__
+        kw.setdefault("name", name)
 
         # TODO: remove this `if` once Role accepts only Host: then we can do
         #       the merging all the time
