@@ -76,6 +76,13 @@ class ParameterList(Parameter):
     def __repr__(self):
         return f"[{', '.join(repr(p) for p in self.parameters)}]"
 
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "list",
+            "value": [p.to_jsonable() for p in self.parameters],
+        }
+
 
 class ParameterDict(Parameter):
     def __init__(self, parameters: Dict[str, Parameter]):
@@ -94,6 +101,13 @@ class ParameterDict(Parameter):
             parts.append(f"{name!r}: {p!r}")
         return "{" + ', '.join(parts) + "}"
 
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "dict",
+            "value": [{name, p.to_jsonable()} for name, p in self.parameters.items()],
+        }
+
 
 class ParameterAny(Parameter):
     def __init__(self, value: Any):
@@ -105,6 +119,13 @@ class ParameterAny(Parameter):
     def __repr__(self):
         return repr(self.value)
 
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "scalar",
+            "value": self.value,
+        }
+
 
 class ParameterOctal(ParameterAny):
     def __repr__(self):
@@ -112,6 +133,13 @@ class ParameterOctal(ParameterAny):
             return f"0o{self.value:o}"
         else:
             return super().__repr__()
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "octal",
+            "value": "0o{self.value:o}" if isinstance(self.value, int) else self.value
+        }
 
 
 class ParameterTemplatedStringList(ParameterAny):
@@ -124,6 +152,13 @@ class ParameterTemplatedStringList(ParameterAny):
     def get_value(self, role: Role):
         return role.render_string(self.value).split(',')
 
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "templated_string_list",
+            "value": self.value
+        }
+
 
 class ParameterVarReferenceStringList(ParameterAny):
     def list_role_vars(self, role: Role) -> Sequence[str]:
@@ -134,6 +169,13 @@ class ParameterVarReferenceStringList(ParameterAny):
 
     def get_value(self, role: Role):
         return getattr(role, self.value).split(',')
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "var_reference_string_list",
+            "value": self.value
+        }
 
 
 class ParameterTemplatePath(ParameterAny):
@@ -149,6 +191,13 @@ class ParameterTemplatePath(ParameterAny):
         path = role.lookup_file(os.path.join("templates", self.value))
         return role.render_file(path)
 
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "template_path",
+            "value": self.value
+        }
+
 
 class ParameterVarReference(ParameterAny):
     def list_role_vars(self, role: Role) -> Sequence[str]:
@@ -160,6 +209,13 @@ class ParameterVarReference(ParameterAny):
     def get_value(self, role: Role):
         return getattr(role, self.value)
 
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "var_reference",
+            "value": self.value
+        }
+
 
 class ParameterTemplateString(ParameterAny):
     def list_role_vars(self, role: Role) -> Sequence[str]:
@@ -170,3 +226,10 @@ class ParameterTemplateString(ParameterAny):
 
     def get_value(self, role: Role):
         return role.render_string(self.value)
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "template_string",
+            "value": self.value
+        }

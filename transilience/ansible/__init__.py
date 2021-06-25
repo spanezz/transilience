@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Type, Dict, Any
 import os
 import yaml
 from .exceptions import RoleNotFoundError
-from .tasks import Task
 from .role import AnsibleRole
 
 if TYPE_CHECKING:
@@ -40,7 +39,7 @@ class RoleLoader:
             raise RoleNotFoundError(self.name)
 
         for task_info in tasks:
-            self.ansible_role.tasks.append(Task.create(task_info))
+            self.ansible_role.add_task(task_info)
 
     def load_handlers(self):
         handlers_file = os.path.join(self.root, "handlers", "main.yaml")
@@ -52,8 +51,8 @@ class RoleLoader:
             return
 
         for info in handlers:
-            h = AnsibleRole(info["name"], with_facts=False)
-            h.tasks.append(Task.create(info))
+            h = AnsibleRole(info["name"], uses_facts=False)
+            h.add_task(info)
             self.ansible_role.handlers[info["name"]] = h
 
     def load(self):

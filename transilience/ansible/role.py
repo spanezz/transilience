@@ -1,21 +1,82 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Set
 from dataclasses import dataclass, fields
+import shlex
 import re
-from ..actions import facts
+from ..actions import facts, builtin
 from ..role import Role, with_facts
-from .tasks import Task
+from .tasks import Task, TaskTemplate
+from .exceptions import RoleNotLoadedError
 
 if TYPE_CHECKING:
     YamlDict = Dict[str, Any]
 
 
 class AnsibleRole:
-    def __init__(self, name: str, with_facts: bool = True):
+    def __init__(self, name: str, uses_facts: bool = True):
         self.name = name
-        self.with_facts = with_facts
+        self.uses_facts = uses_facts
         self.tasks: List[Task] = []
         self.handlers: Dict[str, "AnsibleRole"] = {}
+
+    def add_task(self, task_info: YamlDict):
+        candidates = []
+        for key in task_info.keys():
+            if key in ("name", "args", "notify"):
+                continue
+            candidates.append(key)
+
+        if len(candidates) != 1:
+            raise RoleNotLoadedError(f"could not find a known module in task {task_info!r}")
+
+        modname = candidates[0]
+        if modname.startswith("ansible.builtin."):
+            name = modname[16:]
+        else:
+            name = modname
+
+        args: YamlDict
+        if isinstance(task_info[name], dict):
+            args = task_info[name]
+        else:
+            args = task_info.get("args", {})
+            # Fixups for command: in Ansible it can be a simple string instead
+            # of a dict
+            if name == "command":
+                args["argv"] = shlex.split(task_info[name])
+            else:
+                raise RoleNotLoadedError(f"ansible module argument for {modname} is not a dict")
+
+        if name == "template":
+            task = TaskTemplate(args, task_info)
+        else:
+            action_cls = getattr(builtin, name, None)
+            if action_cls is None:
+                raise RoleNotLoadedError(f"Action builtin.{name} not available in Transilience")
+
+            transilience_name = f"builtin.{name}"
+
+            task = Task(action_cls, args, task_info, transilience_name)
+
+        notify = task_info.get("notify")
+        if notify is not None:
+            if isinstance(notify, str):
+                notify = [notify]
+            for name in notify:
+                h = self.handlers[name]
+                task.notify.append(h)
+
+        self.tasks.append(task)
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "role",
+            "name": self.name,
+            "python_name": self.get_python_name(),
+            "uses_facts": self.uses_facts,
+            "tasks": [t.to_jsonable() for t in self.tasks],
+            "handlers": [h.to_jsonable() for h in self.handlers.values()],
+        }
 
     def get_role_class(self) -> Type[Role]:
         # If we have handlers, instantiate role classes for them
@@ -33,7 +94,7 @@ class AnsibleRole:
             for func in start_funcs:
                 func(self)
 
-        if with_facts:
+        if self.uses_facts:
             role_cls = type(self.name, (Role,), {
                 "start": lambda host: None,
                 "all_facts_available": role_main
@@ -78,7 +139,7 @@ class AnsibleRole:
         role = self.get_role_class()(name=self.name)
 
         lines = []
-        if self.with_facts:
+        if self.uses_facts:
             lines.append("@role.with_facts([facts.Platform])")
 
         if name is None:
@@ -98,7 +159,7 @@ class AnsibleRole:
                 lines.append(f"    {name}: Any = None")
             lines.append("")
 
-        if self.with_facts:
+        if self.uses_facts:
             lines.append("    def all_facts_available(self):")
         else:
             lines.append("    def start(self):")

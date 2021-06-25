@@ -5,7 +5,9 @@ import importlib
 import argparse
 import inspect
 import logging
+import json
 import sys
+import os
 try:
     import coloredlogs
 except ModuleNotFoundError:
@@ -61,8 +63,10 @@ class Playbook:
                             help="verbose output")
         parser.add_argument("-C", "--check", action="store_true",
                             help="do not perform changes, but check if changes would be needed")
-        parser.add_argument("--to-python", action="store", metavar="role",
+        parser.add_argument("--ansible-to-python", action="store", metavar="role",
                             help="print the given Ansible role as Transilience Python code")
+        parser.add_argument("--ansible-to-ast", action="store", metavar="role",
+                            help="print the AST of the given Ansible role as understood by Transilience")
 
         return parser
 
@@ -143,13 +147,36 @@ class Playbook:
         loader.load()
         print(loader.get_python_code(), file=file)
 
+    def role_to_ast(self, name: str, file=None):
+        """
+        Print the Python code generated from the given Ansible role
+        """
+        if file is None:
+            file = sys.stdout
+
+        if not hasattr(file, "fileno"):
+            indent = None
+        elif os.isatty(file.fileno()):
+            indent = 2
+        else:
+            indent = None
+
+        from .ansible import RoleLoader
+        loader = RoleLoader(name)
+        loader.load()
+        json.dump(loader.ansible_role.to_jsonable(), file, indent=indent)
+
     def main(self):
         parser = self.make_argparser()
         self.args = parser.parse_args()
         self.setup_logging()
 
-        if self.args.to_python:
-            self.role_to_python(self.args.to_python)
+        if self.args.ansible_to_python:
+            self.role_to_python(self.args.ansible_to_python)
+            return
+
+        if self.args.ansible_to_ast:
+            self.role_to_ast(self.args.ansible_to_ast)
             return
 
         # Start all the runners in separate threads
