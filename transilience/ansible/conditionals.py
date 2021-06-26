@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Callable, Dict, Any
+from typing import TYPE_CHECKING, Sequence, Callable, Dict, Any, Set
 import jinja2.parser
 import jinja2.meta
 import jinja2.visitor
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 class FindVars(jinja2.visitor.NodeVisitor):
     def __init__(self):
-        self.found = set()
+        self.found: Set[str] = set()
 
     def visit_Name(self, node):
         if node.ctx == "load":
