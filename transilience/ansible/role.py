@@ -5,7 +5,9 @@ import shlex
 import re
 from ..actions import facts, builtin
 from ..role import Role, with_facts
+from .. import template
 from .tasks import Task, TaskTemplate
+from .conditionals import Conditional
 from .exceptions import RoleNotLoadedError
 
 if TYPE_CHECKING:
@@ -13,16 +15,19 @@ if TYPE_CHECKING:
 
 
 class AnsibleRole:
-    def __init__(self, name: str, uses_facts: bool = True):
+    def __init__(self, name: str, root: str, uses_facts: bool = True):
         self.name = name
+        self.root = root
         self.uses_facts = uses_facts
         self.tasks: List[Task] = []
         self.handlers: Dict[str, "AnsibleRole"] = {}
+        self.template_engine: template.Engine = template.Engine([self.root])
 
     def add_task(self, task_info: YamlDict):
         candidates = []
+
         for key in task_info.keys():
-            if key in ("name", "args", "notify"):
+            if key in ("name", "args", "notify", "when"):
                 continue
             candidates.append(key)
 
@@ -65,6 +70,14 @@ class AnsibleRole:
             for name in notify:
                 h = self.handlers[name]
                 task.notify.append(h)
+
+        when = task_info.get("when")
+        if when is not None:
+            if not isinstance(when, list):
+                when = [when]
+            for expr in when:
+                cond = Conditional(self.template_engine, expr)
+                task.conditionals.append(cond)
 
         self.tasks.append(task)
 
@@ -164,7 +177,8 @@ class AnsibleRole:
         else:
             lines.append("    def start(self):")
 
-        for role_action in self.tasks:
-            lines.append(" " * 8 + role_action.get_python(handlers=handlers))
+        for task in self.tasks:
+            for line in task.get_python(handlers=handlers):
+                lines.append(" " * 8 + line)
 
         return lines

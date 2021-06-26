@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from dataclasses import Field
     from ..actions import Action
     from .role import AnsibleRole
+    from .conditionals import Conditional
     YamlDict = Dict[str, Any]
 
 
@@ -24,6 +25,7 @@ class Task:
         self.transilience_name = transilience_name
         # List of python names of handler roles notified by this task
         self.notify: List[AnsibleRole] = []
+        self.conditionals: List[Conditional] = []
 
         # Build parameter list
         for f in fields(self.action_cls):
@@ -44,6 +46,8 @@ class Task:
         """
         for p in self.parameters.values():
             yield from p.list_role_vars(role)
+        for c in self.conditionals:
+            yield from c.list_role_vars()
 
     def to_jsonable(self) -> Dict[str, Any]:
         return {
@@ -52,6 +56,7 @@ class Task:
             "parameters": {name: p.to_jsonable() for name, p in self.parameters.items()},
             "ansible_yaml": self.task_info,
             "notify": [h.get_python_name() for h in self.notify],
+            "conditionals": [c.to_jsonable() for c in self.conditionals],
         }
 
     def get_start_func(self, handlers: Optional[Dict[str, Callable[[], None]]] = None):
@@ -71,7 +76,7 @@ class Task:
             role.add(self.action_cls(**args), name=self.task_info.get("name"), notify=notify_classes)
         return starter
 
-    def get_python(self, handlers: Optional[Dict[str, str]] = None) -> str:
+    def get_python(self, handlers: Optional[Dict[str, str]] = None) -> List[str]:
         if handlers is None:
             handlers = {}
 
@@ -90,7 +95,17 @@ class Task:
         elif len(self.notify) > 1:
             add_args.append(f"notify=[{', '.join(n.get_python_name() for n in self.notify)}]")
 
-        return f"self.add({', '.join(add_args)})"
+        lines = []
+        if self.conditionals:
+            if len(self.conditionals) > 1:
+                lines.append(f"if {' and '.join(c.get_python_code() for c in self.conditionals)}:")
+            else:
+                lines.append(f"if {self.conditionals[0].get_python_code()}:")
+            lines.append(f"    self.add({', '.join(add_args)})")
+        else:
+            lines.append(f"self.add({', '.join(add_args)})")
+
+        return lines
 
 
 class TaskTemplate(Task):

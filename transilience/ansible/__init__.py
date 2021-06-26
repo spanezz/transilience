@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 
 class RoleLoader:
     def __init__(self, name: str):
-        self.ansible_role = AnsibleRole(name=name)
+        self.root = os.path.join("roles", name)
+        self.ansible_role = AnsibleRole(name=name, root=self.root)
         self.root = os.path.join("roles", name)
 
     def load_tasks(self):
@@ -51,7 +52,7 @@ class RoleLoader:
             return
 
         for info in handlers:
-            h = AnsibleRole(info["name"], uses_facts=False)
+            h = AnsibleRole(info["name"], root=self.root, uses_facts=False)
             h.add_task(info)
             self.ansible_role.handlers[info["name"]] = h
 
