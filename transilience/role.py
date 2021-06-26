@@ -75,12 +75,12 @@ class Role:
     # Root directory of the filesystem area where role-related files and
     # templates are found.
     # If not provided it defaults to roles/{name}/
-    root: Optional[str] = None
+    role_assets_root: Optional[str] = None
 
     def __post_init__(self):
-        if self.root is None:
-            self.root = os.path.join("roles", self.name)
-        self.template_engine: template.Engine = template.Engine([self.root])
+        if self.role_assets_root is None:
+            self.role_assets_root = os.path.join("roles", self.name)
+        self.template_engine: template.Engine = template.Engine([self.role_assets_root])
         self._runner: "Runner"
         # UUIDs of actions sent and not received yet
         self._pending: Set[str] = set()
@@ -228,13 +228,6 @@ class Role:
 
     def start(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")
-
-    def lookup_file(self, path: str) -> str:
-        """
-        Resolve the given path according to where this role expects input files
-        to be
-        """
-        return path
 
     def render_file(self, path: str, **kwargs) -> str:
         """

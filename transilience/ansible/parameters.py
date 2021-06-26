@@ -180,15 +180,14 @@ class ParameterVarReferenceStringList(ParameterAny):
 
 class ParameterTemplatePath(ParameterAny):
     def list_role_vars(self, role: Role) -> Sequence[str]:
-        path = role.lookup_file(os.path.join("templates", self.value))
-        yield from role.template_engine.list_file_template_vars(path)
+        yield from role.template_engine.list_file_template_vars(os.path.join("templates", self.value))
 
     def __repr__(self):
         path = os.path.join("templates", self.value)
         return f"self.render_file({path!r})"
 
     def get_value(self, role: Role):
-        path = role.lookup_file(os.path.join("templates", self.value))
+        path = os.path.join("templates", self.value)
         return role.render_file(path)
 
     def to_jsonable(self) -> Dict[str, Any]:

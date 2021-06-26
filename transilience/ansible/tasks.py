@@ -32,13 +32,13 @@ class Task:
             value = args.pop(f.name, None)
             if value is None:
                 continue
-            self.parameters[f.name] = self.make_parameter(f, value)
+            self.add_parameter(f, value)
 
         if args:
             raise RoleNotLoadedError(f"Task {task_info!r} has unrecognized parameters {args!r}")
 
-    def make_parameter(self, f: Field, value: Any):
-        return Parameter.create(f, value)
+    def add_parameter(self, f: Field, value: Any):
+        self.parameters[f.name] = Parameter.create(f, value)
 
     def list_role_vars(self, role: Role) -> Sequence[str]:
         """
@@ -116,8 +116,9 @@ class TaskTemplate(Task):
     def __init__(self, args: YamlDict, task_info: YamlDict):
         super().__init__(builtin.copy, args, task_info, "builtin.copy")
 
-    def make_parameter(self, f: Field, value: Any):
+    def add_parameter(self, f: Field, value: Any):
         if f.name == "src":
-            return ParameterTemplatePath(value)
+            # TODO: rename in contents
+            self.parameters["content"] = ParameterTemplatePath(value)
         else:
-            return super().make_parameter(f, value)
+            super().add_parameter(f, value)

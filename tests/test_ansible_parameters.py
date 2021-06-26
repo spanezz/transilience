@@ -31,13 +31,16 @@ class MockRole:
     @contextmanager
     def template(self, contents: str) -> ContextManager[str]:
         old_engine = self.template_engine
-        with tempfile.NamedTemporaryFile("wt") as fd:
-            fd.write(contents)
-            fd.flush()
+        with tempfile.TemporaryDirectory() as workdir:
+            tpl_dir = os.path.join(workdir, "templates")
+            os.makedirs(tpl_dir)
+            tpl_file = os.path.join(tpl_dir, "tmp.html")
+            with open(tpl_file, "wt") as fd:
+                fd.write(contents)
             try:
-                self.template_engine = Engine(os.path.dirname(fd.name))
-                self.lookup_file_path = os.path.basename(fd.name)
-                yield
+                self.template_engine = Engine([workdir])
+                self.lookup_file_path = workdir
+                yield "tmp.html"
             finally:
                 self.template_engine = old_engine
                 self.lookup_file_path = None
@@ -95,9 +98,9 @@ class TestParameters(TestCase):
         role = MockRole(b="rendered")
         P = parameters.ParameterTemplatePath
 
-        p = P("path/file")
-        with role.template("test:{{b}}"):
-            self.assertEqual(repr(p), "self.render_file('templates/path/file')")
+        with role.template("test:{{b}}") as fname:
+            p = P(fname)
+            self.assertEqual(repr(p), f"self.render_file('templates/{fname}')")
             self.assertEqual(p.get_value(role), "test:rendered")
             self.assertEqual(set(p.list_role_vars(role)), {"b"})
 
