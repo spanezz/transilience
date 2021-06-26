@@ -30,8 +30,10 @@ setup(
     python_requires=">=3.7, <4",
     install_requires=[
         # "coloredlogs", # Optional
+        # "yapf", # Optional
         "jinja2",
         "mitogen",
+        "yaml",
     ],
     extras_require={
         "device": ["parted"],
