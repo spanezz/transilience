@@ -118,7 +118,6 @@ class TaskTemplate(Task):
 
     def add_parameter(self, f: Field, value: Any):
         if f.name == "src":
-            # TODO: rename in contents
             self.parameters["content"] = ParameterTemplatePath(value)
         else:
             super().add_parameter(f, value)
