@@ -22,6 +22,13 @@ if TYPE_CHECKING:
 #    in files
 #  - notify/handlers if defined inside thet same role (cannot notify
 #    handlers from other roles)
+#  - when: expressions with:
+#     - variable references
+#     - is defined
+#     - is undefined
+#     - not
+#     - and
+#     - or
 
 
 class RoleLoader:
