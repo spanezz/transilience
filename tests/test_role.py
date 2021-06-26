@@ -19,7 +19,7 @@ class MockRunner:
 
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         name = role_cls.__name__
-        kw.setdefault("name", name)
+        kw.setdefault("role_name", name)
         role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
@@ -133,7 +133,7 @@ class TestRole(unittest.TestCase):
             with open(os.path.join(template_dir, "tpl.html"), "wt") as fd:
                 fd.write("Test: {{testvar}}")
 
-            role = Role(name="test", role_assets_root=os.path.join(workdir, "roles", "test"))
+            role = Role(role_name="test", role_assets_root=os.path.join(workdir, "roles", "test"))
 
             self.assertEqual(role.render_file("templates/tpl.html", testvar=42), "Test: 42")
             self.assertEqual(role.template_engine.list_file_template_vars("templates/tpl.html"), {"testvar"})
@@ -158,7 +158,7 @@ class TestFacts(unittest.TestCase):
             value4: int = 4
 
         self.assertEqual(Role2._facts, (F1, F2))
-        r = Role2(name="test")
+        r = Role2(role_name="test")
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value2, 2)
         self.assertEqual(r.value3, 3)
@@ -178,7 +178,7 @@ class TestFacts(unittest.TestCase):
             value4: int = 4
 
         self.assertEqual(Role2._facts, (F1,))
-        r = Role2(name="test")
+        r = Role2(role_name="test")
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value3, 3)
         self.assertEqual(r.value4, 4)
@@ -201,7 +201,7 @@ class TestFacts(unittest.TestCase):
             value4: int = 4
 
         self.assertEqual(Role2._facts, (F1, F2))
-        r = Role2(name="test")
+        r = Role2(role_name="test")
         self.assertEqual(r.value1, 1)
         self.assertEqual(r.value2, 2)
         self.assertEqual(r.value3, 3)

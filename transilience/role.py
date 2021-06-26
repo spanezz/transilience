@@ -71,7 +71,7 @@ class Role:
     # Unique identifier for this role
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     # Name used to display the role
-    name: Optional[str] = None
+    role_name: Optional[str] = None
     # Root directory of the filesystem area where role-related files and
     # templates are found.
     # If not provided it defaults to roles/{name}/
@@ -79,7 +79,7 @@ class Role:
 
     def __post_init__(self):
         if self.role_assets_root is None:
-            self.role_assets_root = os.path.join("roles", self.name)
+            self.role_assets_root = os.path.join("roles", self.role_name)
         self.template_engine: template.Engine = template.Engine([self.role_assets_root])
         self._runner: "Runner"
         # UUIDs of actions sent and not received yet
@@ -228,6 +228,13 @@ class Role:
 
     def start(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")
+
+    def lookup_file(self, path: str) -> str:
+        """
+        Resolve a pathname inside the place where the role assets are stored.
+        Returns a pathname to the file
+        """
+        return os.path.join(self.role_assets_root, path)
 
     def render_file(self, path: str, **kwargs) -> str:
         """
