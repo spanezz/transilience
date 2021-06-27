@@ -9,6 +9,8 @@ import stat
 import uuid
 import os
 from .actions import ResultState
+from .hosts import Host
+from .runner import Runner
 
 log = logging.getLogger(__name__)
 
@@ -310,6 +312,13 @@ class LocalTestMixin:
         super().setUp()
         self.system.caches = {}
 
+    def run_role(self, role_cls, **kwargs):
+        host = Host(name="local", type="Local")
+        runner = Runner(host)
+        runner.add_role(role_cls, **kwargs)
+        with self.assertLogs():
+            runner.main()
+
 
 class LocalMitogenTestMixin:
     """
@@ -330,6 +339,13 @@ class LocalMitogenTestMixin:
         super().tearDownClass()
         cls.system.close()
         cls.broker.shutdown()
+
+    def run_role(self, role_cls, **kwargs):
+        host = Host(name="local", type="Mitogen", args={"method": "local"})
+        runner = Runner(host)
+        runner.add_role(role_cls, **kwargs)
+        with self.assertLogs():
+            runner.main()
 
 
 class ChrootTestMixin:

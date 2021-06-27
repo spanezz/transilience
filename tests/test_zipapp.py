@@ -1,14 +1,12 @@
 from __future__ import annotations
-from unittest import TestCase
+import unittest
 import tempfile
 import os
 import yaml
-from transilience.unittest import LocalTestMixin
-from transilience.hosts import Host
-from transilience.runner import Runner
+from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
 
 
-class TestParseYaml(LocalTestMixin, TestCase):
+class ZipappTests:
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -33,18 +31,22 @@ class TestParseYaml(LocalTestMixin, TestCase):
         cls.zipfile.close()
         super().tearDownClass()
 
-    def test_load_role(self):
+    def test_load_yaml(self):
         from transilience.ansible import ZipRoleLoader
         loader = ZipRoleLoader("test", self.zipfile.name)
         loader.load()
         role_cls = loader.get_role_class()
         with tempfile.TemporaryDirectory() as workdir:
-            host = Host(name="local", type="Local")
-            runner = Runner(host)
-            runner.add_role(role_cls, workdir=workdir)
-            with self.assertLogs():
-                runner.main()
+            self.run_role(role_cls, workdir=workdir)
 
             testfile = os.path.join(workdir, "testfile")
             with open(testfile, "rt") as fd:
                 self.assertEqual(fd.read(), "♥")
+
+
+class TestLocal(ZipappTests, LocalTestMixin, unittest.TestCase):
+    pass
+
+
+class TestMitogen(ZipappTests, LocalMitogenTestMixin, unittest.TestCase):
+    pass
