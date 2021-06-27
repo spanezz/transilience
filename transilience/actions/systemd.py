@@ -29,7 +29,7 @@ class Systemd(Action):
     masked: Optional[bool] = None
     state: Optional[str] = None
 
-    def summary(self):
+    def action_summary(self):
         summary = ""
 
         if self.unit is not None:
@@ -107,8 +107,8 @@ class Systemd(Action):
 
         return unit_info
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
         self._default_env = dict(os.environ)
         if "XDG_RUNTIME_DIR" not in self._default_env:
             self._default_env["XDG_RUNTIME_DIR"] = f"/run/user/{os.geteuid()}"

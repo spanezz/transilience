@@ -238,8 +238,8 @@ class File(FileAction):
             self.set_changed()
             self.log.info("%s: removed")
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
 
         meth = getattr(self, f"do_{self.state}", None)
         if meth is None:

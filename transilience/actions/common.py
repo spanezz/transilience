@@ -266,8 +266,8 @@ class FileAction(Action):
         finally:
             outfd.close()
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
 
         # Resolve/validate owner and group before we perform any action
         # From this point on we can cast self.owner and self.group to int

@@ -126,8 +126,8 @@ class Copy(FileAction):
                 raise RuntimeError(f"{self.dest!r} has SHA1 {checksum!r} after receiving it,"
                                    f"but 'checksum' value is {self.checksum!r}")
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
         if self.content is not None:
             self.write_content()
         else:

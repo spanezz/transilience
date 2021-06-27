@@ -11,7 +11,7 @@ class TestCommand(unittest.TestCase):
     def assertRun(self, changed=True, **kwargs):
         with mock.patch("subprocess.run") as subprocess_run:
             act = builtin.command(check=True, **kwargs)
-            act.run(None)
+            act.action_run(None)
             if changed:
                 self.assertEqual(act.result.state, ResultState.CHANGED)
             else:
@@ -19,7 +19,7 @@ class TestCommand(unittest.TestCase):
         self.assertFalse(subprocess_run.called)
 
         act = builtin.command(**kwargs)
-        act.run(None)
+        act.action_run(None)
         if changed:
             self.assertEqual(act.result.state, ResultState.CHANGED)
         else:

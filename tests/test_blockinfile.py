@@ -39,7 +39,7 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
                 path=testfile,
                 **kw
             )
-            action.run(None)
+            action.action_run(None)
 
             if expected is not None:
                 self.assertEqual(action.result.state, ResultState.CHANGED)
@@ -64,7 +64,7 @@ class BlockInFileTests(ActionTestMixin, LocalTestMixin, unittest.TestCase):
                 check=True,
                 **kw
             )
-            action.run(None)
+            action.action_run(None)
 
             if expected is not None:
                 self.assertEqual(action.result.state, ResultState.CHANGED)

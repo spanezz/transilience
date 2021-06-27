@@ -123,8 +123,8 @@ class BlockInFile(FileAction):
         else:
             lines[last_block[0]:last_block[1] + 1] = blocklines
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
         path = self.get_path_object(self.path, follow=True)
         lines: List[bytes]
         if path is None:

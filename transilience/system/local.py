@@ -14,7 +14,7 @@ class LocalExecuteMixin:
     """
     def execute(self, action: actions.Action) -> actions.Action:
         with action.result.collect():
-            action.run(self)
+            action.action_run(self)
         return action
 
 

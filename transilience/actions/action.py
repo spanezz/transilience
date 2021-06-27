@@ -130,13 +130,13 @@ class Action:
             kw["env"]["LANG"] = "C"
         return subprocess.run(cmd, check=check, **kw)
 
-    def run(self, system: transilience.system.System):
+    def action_run(self, system: transilience.system.System):
         """
         Perform the action
         """
         self.result.state = ResultState.NOOP
 
-    def run_pipeline_failed(self, system: transilience.system.System):
+    def action_run_pipeline_failed(self, system: transilience.system.System):
         """
         Run in a pipeline where a previous action failed.
 
@@ -145,7 +145,7 @@ class Action:
         self.log.info("skipped: a previous task failed in the same pipeline")
         self.result.state = ResultState.SKIPPED
 
-    def run_pipeline_skipped(self, system: transilience.system.System, reason: str):
+    def action_run_pipeline_skipped(self, system: transilience.system.System, reason: str):
         """
         Run in a pipeline where a previous action failed.
 

@@ -19,8 +19,8 @@ class Noop(Action):
     def action_summary(self):
         return "Do nothing"
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
         if self.changed:
             self.set_changed()
 
@@ -39,6 +39,6 @@ class Fail(Action):
     def action_summary(self):
         return f"Fail: {self.msg}"
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
         raise RuntimeError(self.msg)

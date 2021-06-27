@@ -118,8 +118,8 @@ class User(Action):
             self.run_command(cmd, input=input)
         self.set_changed()
 
-    def run(self, system: transilience.system.System):
-        super().run(system)
+    def action_run(self, system: transilience.system.System):
+        super().action_run(system)
 
         backend = self.get_backend()
 
