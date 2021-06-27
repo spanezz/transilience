@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, Dict, Any, Callable, BinaryIO, List
+from typing import TYPE_CHECKING, Type, Dict, Any, Callable, List
 from dataclasses import dataclass, field, asdict
 import threading
 
@@ -80,10 +80,3 @@ class System:
         requires a full round trip for each action that gets executed
         """
         raise NotImplementedError(f"{self.__class__}.execute is not implemented")
-
-    def transfer_file(self, src: str, dst: BinaryIO, **kw):
-        """
-        Fetch file ``src`` from the controller and write it to the open
-        file descriptor ``dst``.
-        """
-        raise NotImplementedError(f"{self.__class__}.transfer_file is not implemented")

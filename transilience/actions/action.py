@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Dict, Any, Optional
-from dataclasses import dataclass, asdict, field
+from typing import TYPE_CHECKING, List, Dict, Any, Optional, BinaryIO, ContextManager
+from dataclasses import dataclass, field, fields, asdict, is_dataclass
 import contextlib
 import subprocess
 import traceback
 import importlib
 import logging
+import hashlib
 import shutil
 import base64
 import shlex
@@ -23,6 +24,63 @@ def scalar(default: Any, doc: str, octal: bool = False):
     if octal:
         metadata["octal"] = True
     return field(default=default, metadata=metadata)
+
+
+class FileAsset:
+    """
+    Generic interface for local file assets used by actions
+    """
+    def serialize(self) -> Dict[str, Any]:
+        return {}
+
+    @contextlib.contextmanager
+    def open(self) -> ContextManager[BinaryIO]:
+        raise NotImplementedError(f"{self.__class__}.open is not implemented")
+
+    def copy_to(self, dst: BinaryIO):
+        with self.open() as src:
+            shutil.copyfileobj(src, dst)
+
+    def sha1sum(self) -> str:
+        with self.open() as fd:
+            return FileAsset.compute_file_sha1sum(fd)
+
+    @classmethod
+    def compute_file_sha1sum(self, fd: BinaryIO) -> str:
+        h = hashlib.sha1()
+        while True:
+            buf = fd.read(40960)
+            if not buf:
+                break
+            h.update(buf)
+        return h.hexdigest()
+
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> "FileAsset":
+        t = data.get("type")
+        if t == "local":
+            return LocalFileAsset(data["path"])
+        else:
+            raise ValueError(f"Unknown file asset type {t!r}")
+
+
+class LocalFileAsset(FileAsset):
+    """
+    FileAsset referring to a local file
+    """
+    def __init__(self, path: str):
+        self.path = path
+
+    def serialize(self) -> Dict[str, Any]:
+        res = super().serialize()
+        res["type"] = "local"
+        res["path"] = self.path
+        return res
+
+    @contextlib.contextmanager
+    def open(self) -> ContextManager[BinaryIO]:
+        with open(self.path, "rb") as fd:
+            yield fd
 
 
 class ResultState:
@@ -158,8 +216,20 @@ class Action:
         """
         Serialize this action as a dict suitable for pickling
         """
-        d = asdict(self)
-        d["__action__"] = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+        file_assets: List[str] = []
+        d = {
+            "__action__": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "__file_assets__": file_assets,
+        }
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, FileAsset):
+                d[f.name] = value.serialize()
+                file_assets.append(f.name)
+            elif is_dataclass(value):
+                d[f.name] = asdict(value)
+            else:
+                d[f.name] = value
         return d
 
     def serialize_for_json(self) -> Dict[str, Any]:
@@ -167,16 +237,24 @@ class Action:
         Serialize this action as a dict suitable for encoding to JSON
         """
         binary_fields = {}
+        file_assets = []
         res = {
             "__action__": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
             "__binary__": binary_fields,
+            "__file_assets__": file_assets,
         }
-        for k, v in asdict(self).items():
-            if isinstance(v, bytes):
-                binary_fields[k] = "a85"
-                res[k] = base64.a85encode(v).decode()
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, bytes):
+                binary_fields[f.name] = "a85"
+                res[f.name] = base64.a85encode(value).decode()
+            elif isinstance(value, FileAsset):
+                file_assets.append(f.name)
+                res[f.name] = value.serialize()
+            elif is_dataclass(value):
+                res[f.name] = asdict(value)
             else:
-                res[k] = v
+                res[f.name] = value
         return res
 
     @classmethod
@@ -187,6 +265,15 @@ class Action:
         action_name = serialized.pop("__action__", None)
         if action_name is None:
             raise ValueError(f"action {serialized!r} has no '__action__' element")
+
+        file_assets = serialized.pop("__file_assets__", None)
+        if file_assets is None:
+            file_assets = []
+
+        # Decode file assets
+        for name in file_assets:
+            serialized[name] = FileAsset.deserialize(serialized[name])
+
         mod_name, _, cls_name = action_name.rpartition(".")
         mod = importlib.import_module(mod_name)
         action_cls = getattr(mod, cls_name, None)
@@ -205,6 +292,11 @@ class Action:
         action_name = serialized.pop("__action__", None)
         if action_name is None:
             raise ValueError(f"action {serialized!r} has no '__action__' element")
+
+        file_assets = serialized.pop("__file_assets__", None)
+        if file_assets is None:
+            file_assets = []
+
         mod_name, _, cls_name = action_name.rpartition(".")
         mod = importlib.import_module(mod_name)
         action_cls = getattr(mod, cls_name, None)
@@ -224,6 +316,10 @@ class Action:
                 else:
                     raise NotImplementedError(f"unknown binary encoding style: {val!r}")
                 serialized[name] = dec(serialized[name])
+
+        # Decode file assets
+        for name in file_assets:
+            serialized[name] = FileAsset.deserialize(serialized[name])
 
         serialized["result"] = Result(**serialized["result"])
         return action_cls(**serialized)

@@ -1,7 +1,6 @@
 from __future__ import annotations
-from typing import Sequence, Generator, BinaryIO, Optional
+from typing import Sequence, Generator, Optional
 import collections
-import shutil
 import uuid
 from .. import actions
 from .system import System, PipelineInfo
@@ -27,14 +26,6 @@ class Local(LocalExecuteMixin, LocalPipelineMixin, System):
             name = "local"
         super().__init__(name)
         self.pending_actions = collections.deque()
-
-    def transfer_file(self, src: str, dst: BinaryIO, **kw):
-        """
-        Fetch file ``src`` from the controller and write it to the open
-        file descriptor ``dst``.
-        """
-        with open(src, "rb") as fd:
-            shutil.copyfileobj(fd, dst)
 
     def run_actions(self, action_list: Sequence[actions.Action]) -> Generator[actions.Action, None, None]:
         """

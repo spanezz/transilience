@@ -1,9 +1,11 @@
 from __future__ import annotations
-from typing import Dict, Optional, Sequence, Generator, Any, BinaryIO
+from typing import Dict, Optional, Sequence, Generator, Any, BinaryIO, ContextManager
 import collections
+import contextlib
 import threading
 import logging
 import uuid
+import io
 try:
     import mitogen
     import mitogen.core
@@ -13,6 +15,7 @@ try:
 except ModuleNotFoundError:
     mitogen = None
 from .. import actions
+from ..actions.action import FileAsset, LocalFileAsset
 from .system import System, PipelineInfo
 from .pipeline import LocalPipelineMixin
 from .local import LocalExecuteMixin
@@ -30,6 +33,32 @@ if mitogen is None:
             raise NotImplementedError("the mitogen python module is not installed on this system")
 
 else:
+    class MitogenFileAsset(FileAsset):
+        def __init__(self, local_mitogen: "LocalMitogen", remote_path: str):
+            self.local_mitogen = local_mitogen
+            self.remote_path = remote_path
+
+        def serialize(self) -> Dict[str, Any]:
+            res = super().serialize()
+            res["type"] = "local"
+            res["path"] = self.remote_path
+            return res
+
+        @contextlib.contextmanager
+        def open(self) -> ContextManager[BinaryIO]:
+            with io.BytesIO() as buf:
+                self.copy_to(buf)
+                buf.seek(0)
+                yield buf
+
+        def copy_to(self, dst: BinaryIO):
+            ok, metadata = mitogen.service.FileService.get(
+                context=self.local_mitogen.parent_context,
+                path=self.remote_path,
+                out_fp=dst,
+            )
+            if not ok:
+                raise IOError(f'Transfer of {self.path!r} was interrupted')
 
     class LocalMitogen(LocalExecuteMixin, LocalPipelineMixin, System):
         def __init__(self, parent_context: mitogen.core.Context, router: mitogen.core.Router):
@@ -37,18 +66,11 @@ else:
             self.parent_context = parent_context
             self.router = router
 
-        def transfer_file(self, src: str, dst: BinaryIO, **kw):
-            """
-            Fetch file ``src`` from the controller and write it to the open
-            file descriptor ``dst``.
-            """
-            ok, metadata = mitogen.service.FileService.get(
-                context=self.parent_context,
-                path=src,
-                out_fp=dst,
-            )
-            if not ok:
-                raise IOError(f'Transfer of {src!r} was interrupted')
+        def remap_file_asset(self, asset: FileAsset):
+            if isinstance(asset, LocalFileAsset):
+                return MitogenFileAsset(self, asset.path)
+            else:
+                raise NotImplementedError(f"Unable to handle File asset of type {asset.__class__!r}")
 
     class Mitogen(System):
         """
@@ -158,7 +180,17 @@ else:
 
             pipeline_info = action.pop("__pipeline__", None)
 
+            # Convert LocalFileAsset to something that fetches via Mitogen
+            file_assets = action.get("__file_assets__", None)
+            if file_assets is None:
+                file_assets = []
+
             action = actions.Action.deserialize(action)
+            for name in file_assets:
+                setattr(action, name,
+                        system.remap_file_asset(
+                            getattr(action, name)))
+
             if pipeline_info is None:
                 action = system.execute(action)
             else:

@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Optional, Union, List
 from dataclasses import dataclass
 import hashlib
 import os
-from .common import FileAction, PathObject
+from .action import FileAsset, LocalFileAsset
+from .common import FileAction
 from . import builtin
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class Copy(FileAction):
      * src as directory
     """
     dest: str = ""
-    src: Optional[str] = None
+    src: Union[None, str, FileAsset] = None
     content: Union[str, bytes, None] = None
     checksum: Optional[str] = None
     follow: bool = True
@@ -45,10 +46,12 @@ class Copy(FileAction):
             if self.content is not None:
                 raise ValueError(f"{self.__class__}: src and content cannot both be set")
 
+            # Make sure src, if present, is a FileAsset
+            if isinstance(self.src, str):
+                self.src = LocalFileAsset(os.path.abspath(self.src))
+
             if self.checksum is None:
-                self.src = os.path.abspath(self.src)
-                with open(self.src, "rb") as fd:
-                    self.checksum = PathObject.compute_file_sha1sum(fd)
+                self.checksum = self.src.sha1sum()
         elif self.content is not None:
             if self.checksum is None:
                 h = hashlib.sha1()
@@ -119,9 +122,9 @@ class Copy(FileAction):
             return
 
         with self.write_file_atomically(dest, "w+b") as fd:
-            system.transfer_file(self.src, fd)
+            self.src.copy_to(fd)
             fd.seek(0)
-            checksum = PathObject.compute_file_sha1sum(fd)
+            checksum = FileAsset.compute_file_sha1sum(fd)
             if checksum != self.checksum:
                 raise RuntimeError(f"{self.dest!r} has SHA1 {checksum!r} after receiving it,"
                                    f"but 'checksum' value is {self.checksum!r}")

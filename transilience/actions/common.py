@@ -1,16 +1,15 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Union, Optional, BinaryIO, cast
+from typing import TYPE_CHECKING, Union, Optional, cast
 from dataclasses import dataclass
 import contextlib
 import tempfile
-import hashlib
 import stat
 import pwd
 import grp
 import io
 import os
 from transilience.utils.modechange import ModeChange
-from .action import Action, scalar
+from .action import Action, scalar, FileAsset
 
 if TYPE_CHECKING:
     import transilience.system
@@ -54,19 +53,9 @@ class PathObject:
     def walk(self, **kw):
         yield from os.walk(self.path)
 
-    def sha1sum(self):
+    def sha1sum(self) -> str:
         with open(self.path, "rb") as fd:
-            return self.compute_file_sha1sum(fd)
-
-    @classmethod
-    def compute_file_sha1sum(self, fd: BinaryIO) -> str:
-        h = hashlib.sha1()
-        while True:
-            buf = fd.read(40960)
-            if not buf:
-                break
-            h.update(buf)
-        return h.hexdigest()
+            return FileAsset.compute_file_sha1sum(fd)
 
 
 @dataclass
