@@ -221,7 +221,9 @@ class Runner:
                     pa = PendingAction(role, facts, [])
                     role._pending.add(facts.uuid)
                     self.add_pending_action(pa, PipelineInfo(id=facts.uuid))
-        role.start()
+        start = getattr(role, "start", None)
+        if start is not None:
+            start()
         return role
 
     def main(self):

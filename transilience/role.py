@@ -229,9 +229,6 @@ class Role:
         warnings.warn("Role.main() has been renamed to Role.start()", DeprecationWarning)
         return self.start()
 
-    def start(self):
-        raise NotImplementedError(f"{self.__class__}.start not implemented")
-
     def lookup_file(self, path: str) -> str:
         """
         Resolve a pathname inside the place where the role assets are stored.

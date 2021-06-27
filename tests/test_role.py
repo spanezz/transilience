@@ -23,7 +23,9 @@ class MockRunner:
         role = role_cls(**kw)
         role.name = name
         role.set_runner(self)
-        role.start()
+        start = getattr(role, "start", None)
+        if start is not None:
+            start()
         return role
 
     def add_pending_action(self, pending: PendingAction, pipeline_info: PipelineInfo):
