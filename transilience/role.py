@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, make_dataclass, fields, asdict
 import contextlib
 import warnings
 import uuid
+import sys
 import os
 from . import actions
 from .system import PipelineInfo
@@ -258,39 +259,62 @@ class Role:
         return self.template_engine.render_string(template, ctx)
 
     @classmethod
-    def load_python(cls, role_name: str) -> Optional[Type["Role"]]:
+    def load_python(cls, role_name: str, package_name: str = "roles") -> Optional[Type["Role"]]:
         """
         Try to build a Transilience role from a Python module
         """
         import importlib
-        mod = importlib.import_module(f"roles.{role_name}")
+        mod = importlib.import_module(f"{package_name}.{role_name}")
         if not hasattr(mod, "Role"):
             return None
         return type(role_name, (mod.Role,), {})
 
     @classmethod
-    def load_ansible(cls, role_name: str) -> Optional[Type["Role"]]:
+    def load_ansible(cls, role_name: str, root: str = "roles") -> Optional[Type["Role"]]:
         """
         Try to build a Transilience role from an Ansible YAML role
         """
         from .ansible import FilesystemRoleLoader, RoleNotFoundError
         try:
-            loader = FilesystemRoleLoader(role_name)
+            loader = FilesystemRoleLoader(role_name, roles_root=root)
             loader.load()
         except RoleNotFoundError:
             return None
         return loader.get_role_class()
 
     @classmethod
-    def load(cls, role_name: str) -> Type["Role"]:
+    def load_zip_ansible(cls, role_name: str, filename: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience roles from roles in a zip file
+        """
+        from transilience.ansible import ZipRoleLoader
+        loader = ZipRoleLoader(role_name, filename)
+        loader.load()
+        return loader.get_role_class()
+
+    @classmethod
+    def load_zip_module(cls, role_name: str, filename: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience roles from roles in a zip file
+        """
+        from transilience.ansible import ZipRoleLoader
+        orig_path = sys.path
+        try:
+            sys.path = [os.path.abspath(filename)] + sys.path
+            return cls.load_python(role_name, package_name="roles")
+        finally:
+            sys.path = orig_path
+
+    @classmethod
+    def load(cls, role_name: str, root: str = "roles") -> Type["Role"]:
         """
         Load a role by its name
         """
-        role = cls.load_python(role_name)
+        role = cls.load_python(role_name, package_name=root)
         if role is not None:
             return role
 
-        role = cls.load_ansible(role_name)
+        role = cls.load_ansible(role_name, root=root)
         if role is not None:
             return role
 

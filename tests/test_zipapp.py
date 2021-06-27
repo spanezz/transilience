@@ -4,6 +4,7 @@ import tempfile
 import os
 import yaml
 from transilience.unittest import LocalTestMixin, LocalMitogenTestMixin
+from transilience.role import Role
 
 
 class ZipappTests:
@@ -24,6 +25,24 @@ class ZipappTests:
         ]
         zf.writestr("roles/test/tasks/main.yaml", yaml.dump(role))
         zf.writestr("roles/test/files/testfile", "♥")
+
+        role = [
+            "from __future__ import annotations",
+            "from transilience import actions, role",
+            "from transilience.actions import builtin",
+            "",
+            "@role.with_facts([actions.facts.Platform])",
+            "class Role(role.Role):",
+            "    workdir: str = None",
+            "    def all_facts_available(self):",
+            "        self.add(builtin.copy(",
+            "            src=self.lookup_file('files/testfile'),",
+            "            dest=self.workdir,",
+            "        ))",
+        ]
+        zf.writestr("roles/__init__.py", "")
+        zf.writestr("roles/test1.py", "\n".join(role))
+        zf.writestr("roles/test1/files/testfile", "♥")
         zf.close()
 
     @classmethod
@@ -32,10 +51,16 @@ class ZipappTests:
         super().tearDownClass()
 
     def test_load_yaml(self):
-        from transilience.ansible import ZipRoleLoader
-        loader = ZipRoleLoader("test", self.zipfile.name)
-        loader.load()
-        role_cls = loader.get_role_class()
+        role_cls = Role.load_zip_ansible("test", self.zipfile.name)
+        with tempfile.TemporaryDirectory() as workdir:
+            self.run_role(role_cls, workdir=workdir)
+
+            testfile = os.path.join(workdir, "testfile")
+            with open(testfile, "rt") as fd:
+                self.assertEqual(fd.read(), "♥")
+
+    def test_load_module(self):
+        role_cls = Role.load_zip_module("test1", self.zipfile.name)
         with tempfile.TemporaryDirectory() as workdir:
             self.run_role(role_cls, workdir=workdir)
 
