@@ -79,7 +79,7 @@ class User(Action):
         if not self.groups and self.append:
             raise ValueError("'append' is set, but no 'groups' are specified. Use 'groups' for appending new groups")
 
-    def summary(self):
+    def action_summary(self):
         if self.state == 'absent':
             return f"Remove user {self.name!r}"
         else:

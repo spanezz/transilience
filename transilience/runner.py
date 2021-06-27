@@ -36,7 +36,7 @@ class NamespaceRunner:
             act = act_cls(*args, **kw)
             res = self._system.execute(act)
             if res.result.state == ResultState.FAILED:
-                raise RuntimeError(f"{act.summary()} failed with {res.result.exc_type}: {res.result.exc_val}")
+                raise RuntimeError(f"{act.action_summary()} failed with {res.result.exc_type}: {res.result.exc_val}")
             return res
         return runner
 
@@ -100,7 +100,7 @@ class PendingAction:
     @property
     def summary(self):
         if self.name is None:
-            self.name = self.action.summary()
+            self.name = self.action.action_summary()
         return self.name
 
 

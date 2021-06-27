@@ -38,7 +38,7 @@ class Platform(Facts):
     ansible_userspace_architecture: Optional[str] = None
     ansible_machine_id: Optional[str] = None
 
-    def summary(self):
+    def action_summary(self):
         return "gather platform facts"
 
     def run(self, system: transilience.system.System):

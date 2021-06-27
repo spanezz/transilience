@@ -16,7 +16,7 @@ class Noop(Action):
     """
     changed: bool = scalar(False, "Set to True to pretend the action performed changes")
 
-    def summary(self):
+    def action_summary(self):
         return "Do nothing"
 
     def run(self, system: transilience.system.System):
@@ -36,7 +36,7 @@ class Fail(Action):
     """
     msg: str = "Failed as requested from task"
 
-    def summary(self):
+    def action_summary(self):
         return f"Fail: {self.msg}"
 
     def run(self, system: transilience.system.System):

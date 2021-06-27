@@ -60,7 +60,7 @@ class Copy(FileAction):
         else:
             raise ValueError(f"{self.__class__}: one of src and content needs to be set")
 
-    def summary(self):
+    def action_summary(self):
         if self.content is not None:
             return "Replace contents of {self.dest!r}"
         else:

@@ -42,7 +42,7 @@ class File(FileAction):
         if self.state in ("link", "hard") and self.src is None:
             raise ValueError(f"{self.__class__} needs src when state {self.state}")
 
-    def summary(self):
+    def action_summary(self):
         if self.state == "file":
             return f"Set permissions/attributes of file {self.path!r}"
         elif self.state == "directory":

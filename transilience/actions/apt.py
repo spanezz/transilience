@@ -156,7 +156,7 @@ class Apt(Action):
             if self.state == "latest" and '=' in package:
                 raise RuntimeError(f"cannot use version numbers when state=latest: {package!r}")
 
-    def summary(self):
+    def action_summary(self):
         if self.state == "present":
             if len(self.name) == 1:
                 return f"Install package {self.name[0]}"

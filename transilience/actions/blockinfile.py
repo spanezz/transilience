@@ -49,7 +49,7 @@ class BlockInFile(FileAction):
             if self.state is None:
                 self.state = "present"
 
-    def summary(self):
+    def action_summary(self):
         return f"Edit block in {self.path!r}"
 
     def edit_lines(self, lines: List[bytes]):

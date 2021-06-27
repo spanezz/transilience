@@ -35,14 +35,14 @@ class TestSystemd(ActionTestMixin, LocalTestMixin, unittest.TestCase):
             with mock.patch("subprocess.run", collect):
                 orig = builtin.systemd(check=True, **kwargs)
                 # Test generating a summary
-                orig.summary()
+                orig.action_summary()
                 self.run_action(orig, changed=changed)
                 self.assertEqual(actual_called, [])
 
             with mock.patch("subprocess.run", collect):
                 orig = builtin.systemd(**kwargs)
                 # Test generating a summary
-                orig.summary()
+                orig.action_summary()
                 return self.run_action(orig, changed=changed), actual_called
 
     def test_daemon_reload(self):
