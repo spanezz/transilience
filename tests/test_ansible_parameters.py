@@ -22,6 +22,9 @@ class MockRole:
     def render_file(self, path: str) -> str:
         return self.template_engine.render_file(path, self.vars)
 
+    def lookup_file(self, path: str) -> str:
+        return f"LOOKUP:{path}"
+
     @contextmanager
     def template(self, contents: str) -> ContextManager[str]:
         old_engine = self.template_engine
@@ -161,3 +164,30 @@ class TestParameters(TestCase):
             'e': ['bar', 32, False],
         })
         self.assertEqual(set(p.list_role_vars(role)), {"b"})
+
+    def test_var_file_reference(self):
+        role = MockRole(b="filename")
+        P = parameters.ParameterVarFileReference
+
+        p = P("b")
+        self.assertEqual(repr(p), "self.lookup_file(os.path.join('files', self.b))")
+        self.assertEqual(p.get_value(role), "LOOKUP:files/filename")
+        self.assertEqual(set(p.list_role_vars(role)), {"b"})
+
+    def test_templated_file_reference(self):
+        role = MockRole(b="filename")
+        P = parameters.ParameterTemplatedFileReference
+
+        p = P("{{b}}")
+        self.assertEqual(repr(p), "self.lookup_file(os.path.join('files', self.render_string('{{b}}')))")
+        self.assertEqual(p.get_value(role), "LOOKUP:files/filename")
+        self.assertEqual(set(p.list_role_vars(role)), {"b"})
+
+    def test_file_reference(self):
+        role = MockRole()
+        P = parameters.ParameterFileReference
+
+        p = P("filename")
+        self.assertEqual(repr(p), "self.lookup_file(os.path.join('files', 'filename'))")
+        self.assertEqual(p.get_value(role), "LOOKUP:files/filename")
+        self.assertEqual(set(p.list_role_vars(role)), set())

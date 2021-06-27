@@ -7,6 +7,7 @@ import traceback
 import importlib
 import logging
 import hashlib
+import zipfile
 import shutil
 import base64
 import shlex
@@ -23,6 +24,11 @@ def scalar(default: Any, doc: str, octal: bool = False):
     metadata = {"doc": doc}
     if octal:
         metadata["octal"] = True
+    return field(default=default, metadata=metadata)
+
+
+def local_file(default: Any, doc: str):
+    metadata = {"doc": doc, "type": "local_file"}
     return field(default=default, metadata=metadata)
 
 
@@ -81,6 +87,28 @@ class LocalFileAsset(FileAsset):
     def open(self) -> ContextManager[BinaryIO]:
         with open(self.path, "rb") as fd:
             yield fd
+
+
+class ZipFileAsset(FileAsset):
+    """
+    FileAsset referencing a file inside a zipfile
+    """
+    def __init__(self, archive: str, path: str):
+        self.archive = archive
+        self.path = path
+
+    def serialize(self) -> Dict[str, Any]:
+        res = super().serialize()
+        res["type"] = "zip"
+        res["archive"] = self.archive
+        res["path"] = self.path
+        return res
+
+    @contextlib.contextmanager
+    def open(self) -> ContextManager[BinaryIO]:
+        with zipfile.ZipFile(self.archive, "r") as zf:
+            with zf.open(self.path) as fd:
+                yield fd
 
 
 class ResultState:

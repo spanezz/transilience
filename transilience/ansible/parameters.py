@@ -29,7 +29,12 @@ class Parameter:
             # Templar.is_template, and is_template
             if re_template_start.search(value):
                 mo = re_single_var.match(value)
-                if f is not None and f.type == "List[str]":
+                if f is not None and f.metadata.get("type") == "local_file":
+                    if mo:
+                        return ParameterVarFileReference(value)
+                    else:
+                        return ParameterTemplatedFileReference(value)
+                elif f is not None and f.type == "List[str]":
                     if mo:
                         return ParameterVarReferenceStringList(mo.group(1))
                     else:
@@ -39,6 +44,8 @@ class Parameter:
                         return ParameterVarReference(mo.group(1))
                     else:
                         return ParameterTemplateString(value)
+            elif f is not None and f.metadata.get("type") == "local_file":
+                return ParameterFileReference(value)
             elif f is not None and f.type == "List[str]":
                 return ParameterAny(value.split(','))
             else:
@@ -230,5 +237,56 @@ class ParameterTemplateString(ParameterAny):
         return {
             "node": "parameter",
             "type": "template_string",
+            "value": self.value
+        }
+
+
+class ParameterVarFileReference(ParameterAny):
+    def list_role_vars(self, role: Role) -> Sequence[str]:
+        yield self.value
+
+    def __repr__(self):
+        return f"self.lookup_file(os.path.join('files', self.{self.value}))"
+
+    def get_value(self, role: Role):
+        return role.lookup_file(os.path.join("files", getattr(role, self.value)))
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "var_file_reference",
+            "value": self.value
+        }
+
+
+class ParameterTemplatedFileReference(ParameterAny):
+    def list_role_vars(self, role: Role) -> Sequence[str]:
+        return role.template_engine.list_string_template_vars(self.value)
+
+    def __repr__(self):
+        return f"self.lookup_file(os.path.join('files', self.render_string({self.value!r})))"
+
+    def get_value(self, role: Role):
+        return role.lookup_file(os.path.join("files", role.render_string(self.value)))
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "templated_file_reference",
+            "value": self.value
+        }
+
+
+class ParameterFileReference(ParameterAny):
+    def __repr__(self):
+        return f"self.lookup_file(os.path.join('files', {self.value!r}))"
+
+    def get_value(self, role: Role):
+        return role.lookup_file(os.path.join("files", self.value))
+
+    def to_jsonable(self) -> Dict[str, Any]:
+        return {
+            "node": "parameter",
+            "type": "file_reference",
             "value": self.value
         }

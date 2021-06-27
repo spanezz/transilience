@@ -11,6 +11,7 @@ from .runner import PendingAction
 from .actions.facts import Facts
 from .actions import ResultState
 from .actions.misc import Fail
+from .actions.action import LocalFileAsset, ZipFileAsset, scalar
 from . import template
 
 if TYPE_CHECKING:
@@ -234,7 +235,7 @@ class Role:
         Resolve a pathname inside the place where the role assets are stored.
         Returns a pathname to the file
         """
-        return os.path.join(self.role_assets_root, path)
+        return LocalFileAsset(os.path.join(self.role_assets_root, path))
 
     def render_file(self, path: str, **kwargs) -> str:
         """
@@ -253,3 +254,20 @@ class Role:
         ctx = asdict(self)
         ctx.update(kwargs)
         return self.template_engine.render_string(template, ctx)
+
+
+@dataclass
+class ZipRole(Role):
+    role_assets_zipfile: Optional[str] = scalar(None, "Path to the zipfile that contains this role")
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.role_assets_zipfile is None:
+            raise RuntimeError("role_assets_zipfile is not set")
+
+    def lookup_file(self, path: str) -> str:
+        """
+        Resolve a pathname inside the place where the role assets are stored.
+        Returns a pathname to the file
+        """
+        return ZipFileAsset(self.role_assets_zipfile, os.path.join(self.role_assets_root, path))

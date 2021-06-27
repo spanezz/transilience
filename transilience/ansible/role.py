@@ -5,7 +5,7 @@ import zipfile
 import shlex
 import re
 from ..actions import facts, builtin
-from ..role import Role, with_facts
+from ..role import Role, ZipRole, with_facts
 from .. import template
 from .tasks import Task, TaskTemplate
 from .conditionals import Conditional
@@ -98,7 +98,13 @@ class AnsibleRole:
         role_vars -= {f.name for f in fields(facts.Platform)}
         return role_vars
 
-    def get_role_class(self) -> Type[Role]:
+    def get_role_class_fields(self):
+        fields = []
+        for name in sorted(self.list_role_vars()):
+            fields.append((name, Any, field(default=None)))
+        return fields
+
+    def get_role_class_namespace(self):
         # If we have handlers, instantiate role classes for them
         handler_classes = {}
         for name, role_builder in self.handlers.items():
@@ -114,27 +120,43 @@ class AnsibleRole:
             for func in start_funcs:
                 func(self)
 
-        namespace = {
-            "start": lambda host: None,
-        }
-
-        fields = []
-        for name in sorted(self.list_role_vars()):
-            fields.append((name, Any, field(default=None)))
-
+        namespace = {}
         if self.uses_facts:
+            namespace["start"] = lambda host: None
             namespace["all_facts_available"] = role_main
-            role_cls = make_dataclass(self.name, fields, bases=(Role,), namespace=namespace)
+        else:
+            namespace["start"] = role_main
+        return namespace
+
+    def get_role_class(self) -> Type[Role]:
+        base = self.get_role_base_class()
+        fields = self.get_role_class_fields()
+        namespace = self.get_role_class_namespace()
+        if self.uses_facts:
+            role_cls = make_dataclass(self.name, fields, bases=(base,), namespace=namespace)
             role_cls = with_facts(facts.Platform)(role_cls)
         else:
-            role_cls = make_dataclass(self.name, fields, bases=(Role,), namespace=namespace)
+            role_cls = make_dataclass(self.name, fields, bases=(base,), namespace=namespace)
 
         return role_cls
+
+    def get_base_role_name(self) -> str:
+        """
+        Return the name of the Role class to use as base
+        """
+        return "Role"
+
+    def get_role_base_class(self) -> Type[Role]:
+        """
+        Return the name of the Role class to use as base
+        """
+        return Role
 
     def get_python_code_module(self) -> List[str]:
         lines = [
             "from __future__ import annotations",
             "from typing import Any",
+            "import os",
             "from transilience import role",
             "from transilience.actions import builtin, facts",
             "",
@@ -165,7 +187,7 @@ class AnsibleRole:
         if name is None:
             name = self.get_python_name()
 
-        lines.append(f"class {name}(role.Role):")
+        lines.append(f"class {name}(role.{self.get_base_role_name()}):")
 
         role_vars = self.list_role_vars()
 
@@ -199,3 +221,14 @@ class AnsibleRoleZip(AnsibleRole):
         super().__init__(name, uses_facts=uses_facts)
         self.zipfile = zipfile
         self.template_engine: template.Engine = template.EngineZip(zipfile=zipfile, root=root)
+
+    def get_base_role_name(self) -> str:
+        return "ZipRole"
+
+    def get_role_base_class(self) -> Type[Role]:
+        return ZipRole
+
+    def get_role_class_fields(self):
+        fields = super().get_role_class_fields()
+        fields.append(("role_assets_zipfile", str, self.zipfile.filename))
+        return fields

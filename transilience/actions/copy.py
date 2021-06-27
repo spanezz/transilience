@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional, Union, List
 from dataclasses import dataclass
 import hashlib
 import os
-from .action import FileAsset, LocalFileAsset
+from .action import FileAsset, LocalFileAsset, local_file
 from .common import FileAction
 from . import builtin
 
@@ -31,7 +31,7 @@ class Copy(FileAction):
      * src as directory
     """
     dest: str = ""
-    src: Union[None, str, FileAsset] = None
+    src: Union[None, str, FileAsset] = local_file(None, "local file to be copied")
     content: Union[str, bytes, None] = None
     checksum: Optional[str] = None
     follow: bool = True
