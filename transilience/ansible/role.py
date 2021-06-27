@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Type, Dict, Any, List, Optional, Set, Sequence
 from dataclasses import fields, field, make_dataclass
+import zipfile
 import shlex
 import re
-import os
 from ..actions import facts, builtin
 from ..role import Role, with_facts
 from .. import template
@@ -16,13 +16,12 @@ if TYPE_CHECKING:
 
 
 class AnsibleRole:
-    def __init__(self, name: str, root: str, uses_facts: bool = True):
+    def __init__(self, name: str, uses_facts: bool = True):
         self.name = name
-        self.root = root
         self.uses_facts = uses_facts
         self.tasks: List[Task] = []
         self.handlers: Dict[str, "AnsibleRole"] = {}
-        self.template_engine: template.Engine = template.Engine([self.root])
+        self.template_engine: template.Engine
 
     def add_task(self, task_info: YamlDict):
         candidates = []
@@ -186,3 +185,17 @@ class AnsibleRole:
                 lines.append(" " * 8 + line)
 
         return lines
+
+
+class AnsibleRoleFilesystem(AnsibleRole):
+    def __init__(self, name: str, root: str, uses_facts: bool = True):
+        super().__init__(name, uses_facts=uses_facts)
+        self.root = root
+        self.template_engine: template.Engine = template.EngineFilesystem([self.root])
+
+
+class AnsibleRoleZip(AnsibleRole):
+    def __init__(self, name: str, zipfile: zipfile.ZipFile, root: str, uses_facts: bool = True):
+        super().__init__(name, uses_facts=uses_facts)
+        self.zipfile = zipfile
+        self.template_engine: template.Engine = template.EngineZip(zipfile=zipfile, root=root)

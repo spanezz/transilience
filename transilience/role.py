@@ -80,7 +80,7 @@ class Role:
     def __post_init__(self):
         if self.role_assets_root is None:
             self.role_assets_root = os.path.join("roles", self.role_name)
-        self.template_engine: template.Engine = template.Engine([self.role_assets_root])
+        self.template_engine: template.Engine = template.EngineFilesystem([self.role_assets_root])
         self._runner: "Runner"
         # UUIDs of actions sent and not received yet
         self._pending: Set[str] = set()

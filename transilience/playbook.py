@@ -3,8 +3,10 @@ from typing import TYPE_CHECKING, Sequence, Union, Type, Optional
 import threading
 import importlib
 import argparse
+import tempfile
 import inspect
 import logging
+import shutil
 import json
 import sys
 import os
@@ -101,9 +103,9 @@ class Playbook:
         """
         Try to build a Transilience role from an Ansible YAML role
         """
-        from .ansible import RoleLoader, RoleNotFoundError
+        from .ansible import FilesystemRoleLoader, RoleNotFoundError
         try:
-            loader = RoleLoader(role_name)
+            loader = FilesystemRoleLoader(role_name)
             loader.load()
         except RoleNotFoundError:
             return None
@@ -145,8 +147,8 @@ class Playbook:
         """
         Print the Python code generated from the given Ansible role
         """
-        from .ansible import RoleLoader
-        loader = RoleLoader(name)
+        from .ansible import FilesystemRoleLoader
+        loader = FilesystemRoleLoader(name)
         loader.load()
         print(loader.get_python_code(), file=file)
 
@@ -164,10 +166,35 @@ class Playbook:
         else:
             indent = None
 
-        from .ansible import RoleLoader
-        loader = RoleLoader(name)
+        from .ansible import FilesystemRoleLoader
+        loader = FilesystemRoleLoader(name)
         loader.load()
         json.dump(loader.ansible_role.to_jsonable(), file, indent=indent)
+
+    def zipapp(self, target: str, interpreter=None):
+        """
+        Bundle this playbook into a self-contained zipapp
+        """
+        import zipapp
+        import jinja2
+        if interpreter is None:
+            interpreter = sys.executable
+
+        with tempfile.TemporaryDirectory() as workdir:
+            # Copy transilience
+            shutil.copytree(os.path.dirname(__file__), os.path.join(workdir, "transilience"))
+            # Copy jinja2
+            shutil.copytree(os.path.dirname(jinja2.__file__), os.path.join(workdir, "jinja2"))
+            # Copy argv[0] as __main__.py
+            shutil.copy(sys.argv[0], os.path.join(workdir, "__main__.py"))
+            # Copy argv[0]/roles
+            role_dir = os.path.join(os.path.dirname(sys.argv[0]), "roles")
+            if os.path.isdir(role_dir):
+                shutil.copytree(role_dir, os.path.join(workdir, "roles"))
+            # TODO: If roles/__init__.py does not exist, add it?
+            # TODO: If roles/*/__init__.py does not exist, add it?
+            # Turn everything into a zipapp
+            zipapp.create_archive(workdir, target, interpreter=interpreter, compressed=True)
 
     def main(self):
         parser = self.make_argparser()
@@ -180,6 +207,10 @@ class Playbook:
 
         if self.args.ansible_to_ast:
             self.role_to_ast(self.args.ansible_to_ast)
+            return
+
+        if self.args.zipapp:
+            self.zipapp(target=self.args.zipapp)
             return
 
         # Start all the runners in separate threads

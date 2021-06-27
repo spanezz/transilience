@@ -7,7 +7,7 @@ from transilience import template
 class TestConditionals(TestCase):
     def setUp(self):
         super().setUp()
-        self.engine = template.Engine()
+        self.engine = template.EngineFilesystem()
 
     def test_var(self):
         c = Conditional(self.engine, "varname")

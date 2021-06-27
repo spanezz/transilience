@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Type, Dict, Any
+import zipfile
 import os
 import yaml
 from .exceptions import RoleNotFoundError
-from .role import AnsibleRole
+from .role import AnsibleRoleFilesystem, AnsibleRoleZip
 
 if TYPE_CHECKING:
     from ..role import Role
@@ -32,34 +33,13 @@ if TYPE_CHECKING:
 
 
 class RoleLoader:
-    def __init__(self, name: str):
-        self.root = os.path.join("roles", name)
-        self.ansible_role = AnsibleRole(name=name, root=self.root)
-        self.root = os.path.join("roles", name)
-
-    def load_tasks(self):
-        tasks_file = os.path.join(self.root, "tasks", "main.yaml")
-
-        try:
-            with open(tasks_file, "rt") as fd:
-                tasks = yaml.load(fd)
-        except FileNotFoundError:
-            raise RoleNotFoundError(self.name)
-
+    def load_parsed_tasks(self, tasks: YamlDict):
         for task_info in tasks:
             self.ansible_role.add_task(task_info)
 
-    def load_handlers(self):
-        handlers_file = os.path.join(self.root, "handlers", "main.yaml")
-
-        try:
-            with open(handlers_file, "rt") as fd:
-                handlers = yaml.load(fd)
-        except FileNotFoundError:
-            return
-
+    def load_parsed_handlers(self, handlers: YamlDict):
         for info in handlers:
-            h = AnsibleRole(info["name"], root=self.root, uses_facts=False)
+            h = AnsibleRoleFilesystem(info["name"], root=self.root, uses_facts=False)
             h.add_task(info)
             self.ansible_role.handlers[info["name"]] = h
 
@@ -80,3 +60,67 @@ class RoleLoader:
             return code
         code, changed = yapf_api.FormatCode(code)
         return code
+
+
+class FilesystemRoleLoader(RoleLoader):
+    def __init__(self, name: str, roles_root: str = "roles"):
+        super().__init__()
+        self.root = os.path.join(roles_root, name)
+        # TODO: make something to create a subrole from self.ansible_role
+        self.ansible_role = AnsibleRoleFilesystem(name=name, root=self.root)
+
+    def load_tasks(self):
+        tasks_file = os.path.join(self.root, "tasks", "main.yaml")
+
+        try:
+            with open(tasks_file, "rt") as fd:
+                tasks = yaml.load(fd)
+        except FileNotFoundError:
+            raise RoleNotFoundError(self.name)
+
+        self.load_parsed_tasks(tasks)
+
+    def load_handlers(self):
+        handlers_file = os.path.join(self.root, "handlers", "main.yaml")
+
+        try:
+            with open(handlers_file, "rt") as fd:
+                handlers = yaml.load(fd)
+        except FileNotFoundError:
+            return
+
+        self.load_parsed_handlers(handlers)
+
+
+class ZipRoleLoader(RoleLoader):
+    """
+    Load Ansible roles from zip files.
+
+    From Python 3.9 we can replace this with importlib.resources, and have a
+    generic loader for both data in zipfiles and data bundled with modules.
+    Before Python 3.9, it is hard to deal with resources that are directory
+    trees.
+    """
+    def __init__(self, name: str, path: str):
+        super().__init__()
+        self.name = name
+        self.zipfile = zipfile.ZipFile(path, "r")
+        self.ansible_role = AnsibleRoleZip(name=name, zipfile=self.zipfile, root=os.path.join("roles", self.name))
+
+    def load_tasks(self):
+        try:
+            with self.zipfile.open(os.path.join("roles", self.name, "tasks", "main.yaml"), "r") as fd:
+                tasks = yaml.load(fd)
+        except KeyError:
+            raise RoleNotFoundError(self.name)
+
+        self.load_parsed_tasks(tasks)
+
+    def load_handlers(self):
+        try:
+            with self.zipfile.open(os.path.join("roles", self.name, "handlers", "main.yaml"), "r") as fd:
+                handlers = yaml.load(fd)
+        except KeyError:
+            return
+
+        self.load_parsed_handlers(handlers)

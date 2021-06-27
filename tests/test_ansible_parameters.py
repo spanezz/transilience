@@ -5,7 +5,7 @@ from unittest import TestCase
 import tempfile
 import os
 from transilience.ansible import parameters
-from transilience.template import Engine
+from transilience.template import EngineFilesystem
 
 
 class MockRole:
@@ -13,7 +13,7 @@ class MockRole:
         self.vars = role_vars
         for k, v in role_vars.items():
             setattr(self, k, v)
-        self.template_engine = Engine()
+        self.template_engine = EngineFilesystem()
         self.lookup_file_path = None
 
     def render_string(self, value: str) -> str:
@@ -32,7 +32,7 @@ class MockRole:
             with open(tpl_file, "wt") as fd:
                 fd.write(contents)
             try:
-                self.template_engine = Engine([workdir])
+                self.template_engine = EngineFilesystem([workdir])
                 self.lookup_file_path = workdir
                 yield "tmp.html"
             finally:

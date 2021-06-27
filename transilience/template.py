@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Optional, List, Dict, Any, Sequence
+import zipfile
+import os
 import jinja2
 import jinja2.meta
 
@@ -20,16 +22,13 @@ class Engine:
     """
     Jinja2 machinery tuned to render text templates
     """
-    def __init__(self, template_paths: Optional[List[str]] = None):
-        if template_paths is None:
-            template_paths = ["."]
-
+    def __init__(self, loader: jinja2.BaseLoader):
         self.env = jinja2.Environment(
                 autoescape=False,
                 trim_blocks=True,
                 keep_trailing_newline=True,
                 finalize=finalize_value,
-                loader=jinja2.FileSystemLoader(template_paths))
+                loader=loader)
 
     def render_string(self, template: str, ctx: Dict[str, Any]) -> str:
         """
@@ -60,3 +59,29 @@ class Engine:
         with open(tpl.filename, "rt") as fd:
             ast = self.env.parse(fd.read(), tpl.name, tpl.filename)
         return jinja2.meta.find_undeclared_variables(ast)
+
+
+class EngineFilesystem(Engine):
+    def __init__(self, template_paths: Optional[List[str]] = None):
+        if template_paths is None:
+            template_paths = ["."]
+        loader = jinja2.FileSystemLoader(template_paths)
+        super().__init__(loader)
+
+
+class ZipLoader(jinja2.BaseLoader):
+    def __init__(self, zipfile: zipfile.ZipFile, root: str):
+        self.zipfile = zipfile
+        self.root = root
+
+    def get_source(self, environment: jinja2.Environment, template: str):
+        path = os.path.join(self.root, template)
+        with self.zipfile.open(path, "r") as fd:
+            source = fd.read().decode()
+        return source, None, lambda: True
+
+
+class EngineZip(Engine):
+    def __init__(self, zipfile: zipfile.ZipFile, root: str):
+        loader = ZipLoader(zipfile, root)
+        super().__init__(loader)
