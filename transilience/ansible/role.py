@@ -93,19 +93,9 @@ class AnsibleRole:
         }
 
     def list_role_vars(self) -> Sequence[str]:
-        class MockRole:
-            def __init__(self, engine: template.Engine, root: str):
-                self.template_engine = engine
-                self.root = root
-
-            def lookup_file(self, path: str) -> str:
-                return os.path.join(self.root, path)
-
-        role = MockRole(self.template_engine, self.root)
-
         role_vars: Set[str] = set()
         for task in self.tasks:
-            role_vars.update(task.list_role_vars(role))
+            role_vars.update(task.list_role_vars(self))
         role_vars -= {f.name for f in fields(facts.Platform)}
         return role_vars
 

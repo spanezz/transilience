@@ -22,12 +22,6 @@ class MockRole:
     def render_file(self, path: str) -> str:
         return self.template_engine.render_file(path, self.vars)
 
-    def lookup_file(self, path: str) -> str:
-        if self.lookup_file_path is None:
-            return path
-        else:
-            return self.lookup_file_path
-
     @contextmanager
     def template(self, contents: str) -> ContextManager[str]:
         old_engine = self.template_engine
