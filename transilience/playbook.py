@@ -1,7 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Union, Type, Optional
+from typing import TYPE_CHECKING, Sequence, Union, Type
 import threading
-import importlib
 import argparse
 import tempfile
 import inspect
@@ -14,12 +13,12 @@ try:
     import coloredlogs
 except ModuleNotFoundError:
     coloredlogs = None
-from transilience.runner import Runner
+from .runner import Runner
+from .role import Role
 
 
 if TYPE_CHECKING:
     from transilience.hosts import Host
-    from .role import Role
 
 
 class Playbook:
@@ -90,41 +89,6 @@ class Playbook:
         self.start(host)
         self.run_context.runner.main()
 
-    def load_python_role(self, role_name: str) -> Optional[Type[Role]]:
-        """
-        Try to build a Transilience role from a Python module
-        """
-        mod = importlib.import_module(f"roles.{role_name}")
-        if not hasattr(mod, "Role"):
-            return None
-        return type(role_name, (mod.Role,), {})
-
-    def load_ansible_role(self, role_name: str) -> Optional[Type[Role]]:
-        """
-        Try to build a Transilience role from an Ansible YAML role
-        """
-        from .ansible import FilesystemRoleLoader, RoleNotFoundError
-        try:
-            loader = FilesystemRoleLoader(role_name)
-            loader.load()
-        except RoleNotFoundError:
-            return None
-        return loader.get_role_class()
-
-    def load_role(self, role_name: str) -> Type[Role]:
-        """
-        Load a role by its name
-        """
-        role = self.load_python_role(role_name)
-        if role is not None:
-            return role
-
-        role = self.load_ansible_role(role_name)
-        if role is not None:
-            return role
-
-        raise RuntimeError(f"role {role_name} not found")
-
     def add_role(self, role_cls: Union[str, Type[Role]], **kw):
         """
         Add a role to this thread's runner
@@ -132,7 +96,7 @@ class Playbook:
         if not hasattr(self.run_context, "runner"):
             raise RuntimeError(f"{self.__class__.__name__}.add_role cannot be called outside of a host thread")
         if isinstance(role_cls, str):
-            role_cls = self.load_role(role_cls)
+            role_cls = Role.load(role_cls)
         self.run_context.runner.add_role(role_cls, **kw)
 
     def start(self, host: Host):

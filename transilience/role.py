@@ -259,3 +259,42 @@ class Role:
         ctx = asdict(self)
         ctx.update(kwargs)
         return self.template_engine.render_string(template, ctx)
+
+    @classmethod
+    def load_python(cls, role_name: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience role from a Python module
+        """
+        import importlib
+        mod = importlib.import_module(f"roles.{role_name}")
+        if not hasattr(mod, "Role"):
+            return None
+        return type(role_name, (mod.Role,), {})
+
+    @classmethod
+    def load_ansible(cls, role_name: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience role from an Ansible YAML role
+        """
+        from .ansible import FilesystemRoleLoader, RoleNotFoundError
+        try:
+            loader = FilesystemRoleLoader(role_name)
+            loader.load()
+        except RoleNotFoundError:
+            return None
+        return loader.get_role_class()
+
+    @classmethod
+    def load(cls, role_name: str) -> Type["Role"]:
+        """
+        Load a role by its name
+        """
+        role = cls.load_python(role_name)
+        if role is not None:
+            return role
+
+        role = cls.load_ansible(role_name)
+        if role is not None:
+            return role
+
+        raise RuntimeError(f"role {role_name} not found")
