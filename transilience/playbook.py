@@ -63,10 +63,13 @@ class Playbook:
                             help="verbose output")
         parser.add_argument("-C", "--check", action="store_true",
                             help="do not perform changes, but check if changes would be needed")
-        parser.add_argument("--ansible-to-python", action="store", metavar="role",
-                            help="print the given Ansible role as Transilience Python code")
-        parser.add_argument("--ansible-to-ast", action="store", metavar="role",
-                            help="print the AST of the given Ansible role as understood by Transilience")
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("--ansible-to-python", action="store", metavar="role",
+                           help="print the given Ansible role as Transilience Python code")
+        group.add_argument("--ansible-to-ast", action="store", metavar="role",
+                           help="print the AST of the given Ansible role as understood by Transilience")
+        group.add_argument("--zipapp", action="store", metavar="file.pyz",
+                           help="bundle this playbook in a self-contained executable python zipapp")
 
         return parser
 
