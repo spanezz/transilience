@@ -229,6 +229,13 @@ class Role:
     def start(self):
         raise NotImplementedError(f"{self.__class__}.start not implemented")
 
+    def lookup_file(self, path: str) -> str:
+        """
+        Resolve a pathname inside the place where the role assets are stored.
+        Returns a pathname to the file
+        """
+        return os.path.join(self.role_assets_root, path)
+
     def render_file(self, path: str, **kwargs) -> str:
         """
         Render a Jinja2 template from a file, using as context all Role fields,
