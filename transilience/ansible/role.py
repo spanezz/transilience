@@ -5,7 +5,7 @@ import zipfile
 import shlex
 import re
 from ..actions import facts, builtin
-from ..role import Role, ZipRole, with_facts
+from ..role import Role, with_facts
 from .. import template
 from .tasks import Task, TaskTemplate
 from .conditionals import Conditional
@@ -129,28 +129,15 @@ class AnsibleRole:
         return namespace
 
     def get_role_class(self) -> Type[Role]:
-        base = self.get_role_base_class()
         fields = self.get_role_class_fields()
         namespace = self.get_role_class_namespace()
         if self.uses_facts:
-            role_cls = make_dataclass(self.name, fields, bases=(base,), namespace=namespace)
+            role_cls = make_dataclass(self.name, fields, bases=(Role,), namespace=namespace)
             role_cls = with_facts(facts.Platform)(role_cls)
         else:
-            role_cls = make_dataclass(self.name, fields, bases=(base,), namespace=namespace)
+            role_cls = make_dataclass(self.name, fields, bases=(Role,), namespace=namespace)
 
         return role_cls
-
-    def get_base_role_name(self) -> str:
-        """
-        Return the name of the Role class to use as base
-        """
-        return "Role"
-
-    def get_role_base_class(self) -> Type[Role]:
-        """
-        Return the name of the Role class to use as base
-        """
-        return Role
 
     def get_python_code_module(self) -> List[str]:
         lines = [
@@ -187,7 +174,7 @@ class AnsibleRole:
         if name is None:
             name = self.get_python_name()
 
-        lines.append(f"class {name}(role.{self.get_base_role_name()}):")
+        lines.append(f"class {name}(role.Role):")
 
         role_vars = self.list_role_vars()
 
@@ -221,12 +208,6 @@ class AnsibleRoleZip(AnsibleRole):
         super().__init__(name, uses_facts=uses_facts)
         self.zipfile = zipfile
         self.template_engine: template.Engine = template.EngineZip(zipfile=zipfile, root=root)
-
-    def get_base_role_name(self) -> str:
-        return "ZipRole"
-
-    def get_role_base_class(self) -> Type[Role]:
-        return ZipRole
 
     def get_role_class_fields(self):
         fields = super().get_role_class_fields()
