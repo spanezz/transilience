@@ -67,10 +67,15 @@ class FileAsset:
     @classmethod
     def deserialize(cls, data: Dict[str, Any]) -> "FileAsset":
         t = data.get("type")
+        cached = data.get("cached")
         if t == "local":
-            return LocalFileAsset(data["path"])
+            res = LocalFileAsset(data["path"])
+            res.cached = cached
+            return res
         elif t == "zip":
-            return ZipFileAsset(data["archive"], data["path"])
+            res = ZipFileAsset(data["archive"], data["path"])
+            res.cached = cached
+            return res
         else:
             raise ValueError(f"Unknown file asset type {t!r}")
 
