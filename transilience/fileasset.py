@@ -43,7 +43,7 @@ class FileAsset:
                 if not buf:
                     break
                 size += len(buf)
-                if size > 32768:
+                if size > 16384:
                     to_cache = None
                 else:
                     to_cache.append(buf)
