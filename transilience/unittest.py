@@ -342,6 +342,8 @@ class LocalMitogenTestMixin:
 
     def run_role(self, role_cls, **kwargs):
         host = Host(name="local", type="Mitogen", args={"method": "local"})
+        # Reuse the existing test case system
+        host._make_system = lambda: self.system
         runner = Runner(host)
         runner.add_role(role_cls, **kwargs)
         with self.assertLogs():

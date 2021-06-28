@@ -13,38 +13,37 @@ class ZipappTests:
         super().setUpClass()
         cls.zipfile = tempfile.NamedTemporaryFile(mode="w+b", suffix=".zip")
         import zipfile
-        zf = zipfile.PyZipFile(cls.zipfile, mode='w', optimize=2)
-        role = [
-            {
-                "name": "test task",
-                "copy": {
-                    "src": "testfile",
-                    "dest": "{{workdir}}/testfile",
-                },
-            }
-        ]
-        zf.writestr("roles/test/tasks/main.yaml", yaml.dump(role))
-        zf.writestr("roles/test/files/testfile", "♥")
+        with zipfile.PyZipFile(cls.zipfile, mode='w', optimize=2) as zf:
+            role = [
+                {
+                    "name": "test task",
+                    "copy": {
+                        "src": "testfile",
+                        "dest": "{{workdir}}/testfile",
+                    },
+                }
+            ]
+            zf.writestr("roles/test/tasks/main.yaml", yaml.dump(role))
+            zf.writestr("roles/test/files/testfile", "♥")
 
-        role = [
-            "from __future__ import annotations",
-            "from transilience import actions, role",
-            "from transilience.actions import builtin",
-            "import os",
-            "",
-            "@role.with_facts([actions.facts.Platform])",
-            "class Role(role.Role):",
-            "    workdir: str = None",
-            "    def all_facts_available(self):",
-            "        self.add(builtin.copy(",
-            "            src=self.lookup_file('files/testfile'),",
-            "            dest=os.path.join(self.workdir, 'testfile'),",
-            "        ))",
-        ]
-        zf.writestr("roles/__init__.py", "")
-        zf.writestr("roles/test1.py", "\n".join(role))
-        zf.writestr("roles/test1/files/testfile", "♥")
-        zf.close()
+            role = [
+                "from __future__ import annotations",
+                "from transilience import actions, role",
+                "from transilience.actions import builtin",
+                "import os",
+                "",
+                "@role.with_facts([actions.facts.Platform])",
+                "class Role(role.Role):",
+                "    workdir: str = None",
+                "    def all_facts_available(self):",
+                "        self.add(builtin.copy(",
+                "            src=self.lookup_file('files/testfile'),",
+                "            dest=os.path.join(self.workdir, 'testfile'),",
+                "        ))",
+            ]
+            zf.writestr("roles/__init__.py", "")
+            zf.writestr("roles/test1.py", "\n".join(role))
+            zf.writestr("roles/test1/files/testfile", "♥")
 
     @classmethod
     def tearDownClass(cls):
