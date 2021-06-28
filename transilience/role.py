@@ -267,7 +267,16 @@ class Role:
         mod = importlib.import_module(f"{package_name}.{role_name}")
         if not hasattr(mod, "Role"):
             return None
-        return type(role_name, (mod.Role,), {})
+        archive = getattr(mod.__loader__, "archive", None)
+        if archive is not None:
+            return make_dataclass(
+                    role_name,
+                    (
+                        ("role_assets_zipfile", str, field(default=archive)),
+                    ),
+                    bases=(mod.Role,))
+        else:
+            return type(role_name, (mod.Role,), {})
 
     @classmethod
     def load_ansible(cls, role_name: str, root: str = "roles") -> Optional[Type["Role"]]:
@@ -297,11 +306,16 @@ class Role:
         """
         Try to build a Transilience roles from roles in a zip file
         """
-        from transilience.ansible import ZipRoleLoader
         orig_path = sys.path
         try:
             sys.path = [os.path.abspath(filename)] + sys.path
-            return cls.load_python(role_name, package_name="roles")
+            role_cls = cls.load_python(role_name, package_name="roles")
+            return make_dataclass(
+                    role_cls.__name__,
+                    (
+                        ("role_assets_zipfile", str, field(default=os.path.abspath(filename))),
+                    ),
+                    bases=(role_cls,))
         finally:
             sys.path = orig_path
 

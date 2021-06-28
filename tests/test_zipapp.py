@@ -30,6 +30,7 @@ class ZipappTests:
             "from __future__ import annotations",
             "from transilience import actions, role",
             "from transilience.actions import builtin",
+            "import os",
             "",
             "@role.with_facts([actions.facts.Platform])",
             "class Role(role.Role):",
@@ -37,7 +38,7 @@ class ZipappTests:
             "    def all_facts_available(self):",
             "        self.add(builtin.copy(",
             "            src=self.lookup_file('files/testfile'),",
-            "            dest=self.workdir,",
+            "            dest=os.path.join(self.workdir, 'testfile'),",
             "        ))",
         ]
         zf.writestr("roles/__init__.py", "")
