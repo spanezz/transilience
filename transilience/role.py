@@ -12,7 +12,8 @@ from .runner import PendingAction
 from .actions.facts import Facts
 from .actions import ResultState
 from .actions.misc import Fail
-from .actions.action import LocalFileAsset, ZipFileAsset, scalar
+from .actions.action import scalar
+from .fileasset import LocalFileAsset, ZipFileAsset
 from . import template
 
 if TYPE_CHECKING:

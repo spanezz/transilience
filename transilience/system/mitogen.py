@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     mitogen = None
 from .. import actions
-from ..actions.action import FileAsset, LocalFileAsset, ZipFileAsset
+from ..fileasset import FileAsset, LocalFileAsset, ZipFileAsset
 from .system import System, PipelineInfo
 from .pipeline import LocalPipelineMixin
 from .local import LocalExecuteMixin

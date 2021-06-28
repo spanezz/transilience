@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Optional, Union, List
 from dataclasses import dataclass
 import hashlib
 import os
-from .action import FileAsset, LocalFileAsset, local_file
+from ..fileasset import FileAsset, LocalFileAsset
+from .action import local_file
 from .common import FileAction
 from . import builtin
 
