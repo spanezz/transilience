@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     mitogen = None
 from .. import actions
-from ..actions.action import FileAsset, LocalFileAsset
+from ..actions.action import FileAsset, LocalFileAsset, ZipFileAsset
 from .system import System, PipelineInfo
 from .pipeline import LocalPipelineMixin
 from .local import LocalExecuteMixin
@@ -33,8 +33,26 @@ if mitogen is None:
             raise NotImplementedError("the mitogen python module is not installed on this system")
 
 else:
+    class MitogenCachedFileAsset(FileAsset):
+        def __init__(self, cached: bytes, serialized: Dict[str, Any]):
+            super().__init__()
+            self.cached = cached
+            self.serialized = serialized
+
+        def serialize(self) -> Dict[str, Any]:
+            return self.serialized
+
+        @contextlib.contextmanager
+        def open(self) -> ContextManager[BinaryIO]:
+            with io.BytesIO(self.cached) as buf:
+                yield buf
+
+        def copy_to(self, dst: BinaryIO):
+            dst.write(self.cached)
+
     class MitogenFileAsset(FileAsset):
         def __init__(self, local_mitogen: "LocalMitogen", remote_path: str):
+            super().__init__()
             self.local_mitogen = local_mitogen
             self.remote_path = remote_path
 
@@ -67,8 +85,12 @@ else:
             self.router = router
 
         def remap_file_asset(self, asset: FileAsset):
-            if isinstance(asset, LocalFileAsset):
+            if asset.cached is not None:
+                return MitogenCachedFileAsset(asset.cached, asset.serialize())
+            elif isinstance(asset, LocalFileAsset):
                 return MitogenFileAsset(self, asset.path)
+            # elif isinstance(asset, ZipFileAsset):
+            #     return MitogenZipFileAsset(self, asset.archive, asset.path)
             else:
                 raise NotImplementedError(f"Unable to handle File asset of type {asset.__class__!r}")
 
