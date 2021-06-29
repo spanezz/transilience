@@ -33,7 +33,7 @@ setup(
         # "yapf", # Optional
         "jinja2",
         "mitogen",
-        "yaml",
+        "PyYAML",
     ],
     extras_require={
         "device": ["parted"],
