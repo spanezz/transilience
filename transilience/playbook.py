@@ -148,8 +148,13 @@ class Playbook:
         """
         import zipapp
         import jinja2
+        import transilience
         if interpreter is None:
             interpreter = sys.executable
+
+        if getattr(transilience.__loader__, "archive", None):
+            # Recursively iterating module directories requires Python 3.9+
+            raise NotImplementedError("Cannot currently create a zipapp from a zipapp")
 
         with tempfile.TemporaryDirectory() as workdir:
             # Copy transilience
