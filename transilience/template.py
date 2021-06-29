@@ -93,5 +93,5 @@ class EngineZip(Engine):
         List the template variables used by this template string
         """
         source = self.loader.get_source(self.env, path)
-        ast = self.env.parse(source, "<template>", path)
+        ast = self.env.parse(source, os.path.basename(path), path)
         return jinja2.meta.find_undeclared_variables(ast)
