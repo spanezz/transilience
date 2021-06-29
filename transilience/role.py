@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Sequence, Optional, List, Union, Type, Set, Di
 from dataclasses import dataclass, field, make_dataclass, fields, asdict
 import contextlib
 import warnings
+import zipfile
 import uuid
 import sys
 import os
@@ -85,7 +86,10 @@ class Role:
     def __post_init__(self):
         if self.role_assets_root is None:
             self.role_assets_root = os.path.join("roles", self.role_name)
-        self.template_engine: template.Engine = template.EngineFilesystem([self.role_assets_root])
+        if self.role_assets_zipfile is not None:
+            self.template_engine: template.Engine = template.EngineZip(self.role_assets_zipfile, self.role_assets_root)
+        else:
+            self.template_engine: template.Engine = template.EngineFilesystem([self.role_assets_root])
         self._runner: "Runner"
         # UUIDs of actions sent and not received yet
         self._pending: Set[str] = set()
@@ -259,78 +263,121 @@ class Role:
         ctx.update(kwargs)
         return self.template_engine.render_string(template, ctx)
 
-    @classmethod
-    def load_python(cls, role_name: str, package_name: str = "roles") -> Optional[Type["Role"]]:
-        """
-        Try to build a Transilience role from a Python module
-        """
-        import importlib
-        mod = importlib.import_module(f"{package_name}.{role_name}")
-        if not hasattr(mod, "Role"):
-            return None
-        archive = getattr(mod.__loader__, "archive", None)
-        if archive is not None:
-            return make_dataclass(
-                    role_name,
-                    (
-                        ("role_assets_zipfile", str, field(default=archive)),
-                    ),
-                    bases=(mod.Role,))
-        else:
-            return type(role_name, (mod.Role,), {})
 
-    @classmethod
-    def load_ansible(cls, role_name: str, root: str = "roles") -> Optional[Type["Role"]]:
-        """
-        Try to build a Transilience role from an Ansible YAML role
-        """
-        from .ansible import FilesystemRoleLoader, RoleNotFoundError
-        try:
-            loader = FilesystemRoleLoader(role_name, roles_root=root)
-            loader.load()
-        except RoleNotFoundError:
-            return None
-        return loader.get_role_class()
-
-    @classmethod
-    def load_zip_ansible(cls, role_name: str, filename: str) -> Optional[Type["Role"]]:
-        """
-        Try to build a Transilience roles from roles in a zip file
-        """
-        from transilience.ansible import ZipRoleLoader
-        loader = ZipRoleLoader(role_name, filename)
-        loader.load()
-        return loader.get_role_class()
-
-    @classmethod
-    def load_zip_module(cls, role_name: str, filename: str) -> Optional[Type["Role"]]:
-        """
-        Try to build a Transilience roles from roles in a zip file
-        """
-        orig_path = sys.path
-        try:
-            sys.path = [os.path.abspath(filename)] + sys.path
-            role_cls = cls.load_python(role_name, package_name="roles")
-            return make_dataclass(
-                    role_cls.__name__,
-                    (
-                        ("role_assets_zipfile", str, field(default=os.path.abspath(filename))),
-                    ),
-                    bases=(role_cls,))
-        finally:
-            sys.path = orig_path
-
-    @classmethod
-    def load(cls, role_name: str, root: str = "roles") -> Type["Role"]:
+class Loader:
+    def load(self, role_name: str) -> Type["Role"]:
         """
         Load a role by its name
         """
-        role = cls.load_python(role_name, package_name=root)
+        role = self.load_python(role_name)
         if role is not None:
             return role
 
-        role = cls.load_ansible(role_name, root=root)
+        role = self.load_ansible(role_name)
         if role is not None:
             return role
 
         raise RuntimeError(f"role {role_name} not found")
+
+    @classmethod
+    def create(cls) -> Optional["Loader"]:
+        """
+        Look for the first directory in sys.path that contains 'roles' and
+        create a loader for its contents
+        """
+        # Find the first entry of sys.path that has a roles/ directory
+        for path in sys.path:
+            loader = cls.create_from_path(path)
+            if loader is not None:
+                return loader
+        return None
+
+    @classmethod
+    def create_from_path(cls, path: str) -> Optional["Loader"]:
+        """
+        If the given path contains 'roles', create a loader for its contents
+        """
+        if os.path.isdir(path):
+            if not os.path.isdir(os.path.join(path, "roles")):
+                return None
+            # Normal Python module
+            return FilesystemPythonLoader(path)
+        elif os.path.isfile(path):
+            with zipfile.ZipFile(path, "r") as zf:
+                try:
+                    info = zf.getinfo("roles/")
+                except KeyError:
+                    return None
+                if not info.is_dir():
+                    return None
+            # Zip file
+            return ZipPythonLoader(path)
+        else:
+            return None
+
+
+class FilesystemPythonLoader(Loader):
+    def __init__(self, path: str):
+        self.path = path
+
+    def load_python(self, role_name: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience role from a Python module
+        """
+        import importlib
+        mod = importlib.import_module(f"roles.{role_name}")
+        if not hasattr(mod, "Role"):
+            return None
+        return type(role_name, (mod.Role,), {})
+
+    def load_ansible(self, role_name: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience role from an Ansible YAML role
+        """
+        from . import ansible
+        root = os.path.join(self.path, "roles")
+        try:
+            loader = ansible.FilesystemRoleLoader(role_name, roles_root=root)
+            loader.load()
+        except ansible.RoleNotFoundError:
+            return None
+        return loader.get_role_class()
+
+
+class ZipPythonLoader(Loader):
+    def __init__(self, archive: str):
+        self.archive = archive
+
+    def load_python(self, role_name: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience roles from roles in a zip file
+        """
+        import importlib
+        orig_path = sys.path
+        try:
+            sys.path = [self.archive] + sys.path
+            try:
+                mod = importlib.import_module(f"roles.{role_name}")
+            except ModuleNotFoundError:
+                return None
+        finally:
+            sys.path = orig_path
+
+        if not hasattr(mod, "Role"):
+            return None
+
+        return make_dataclass(
+                role_name,
+                (
+                    ("role_assets_zipfile", str, field(default=os.path.abspath(self.archive))),
+                ),
+                bases=(mod.Role,))
+
+    def load_ansible(self, role_name: str) -> Optional[Type["Role"]]:
+        """
+        Try to build a Transilience roles from roles in a zip file
+        """
+        from transilience import ansible
+        loader = ansible.ZipRoleLoader(role_name, self.archive)
+        loader.load()
+        return loader.get_role_class()

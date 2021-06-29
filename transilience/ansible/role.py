@@ -202,14 +202,21 @@ class AnsibleRoleFilesystem(AnsibleRole):
         self.root = root
         self.template_engine: template.Engine = template.EngineFilesystem([self.root])
 
+    def create_handler_role(self, name: str) -> "AnsibleRoleFilesystem":
+        return AnsibleRoleFilesystem(name, root=self.root, uses_facts=False)
+
 
 class AnsibleRoleZip(AnsibleRole):
-    def __init__(self, name: str, zipfile: zipfile.ZipFile, root: str, uses_facts: bool = True):
+    def __init__(self, name: str, archive: zipfile.ZipFile, root: str, uses_facts: bool = True):
         super().__init__(name, uses_facts=uses_facts)
-        self.zipfile = zipfile
-        self.template_engine: template.Engine = template.EngineZip(zipfile=zipfile, root=root)
+        self.root = root
+        self.archive = archive
+        self.template_engine: template.Engine = template.EngineZip(archive=archive, root=root)
 
     def get_role_class_fields(self):
         fields = super().get_role_class_fields()
-        fields.append(("role_assets_zipfile", str, self.zipfile.filename))
+        fields.append(("role_assets_zipfile", str, self.archive.filename))
         return fields
+
+    def create_handler_role(self, name: str) -> "AnsibleRoleZip":
+        return AnsibleRoleZip(name, archive=self.archive, root=self.root, uses_facts=False)

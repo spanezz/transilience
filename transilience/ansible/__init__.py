@@ -33,13 +33,16 @@ if TYPE_CHECKING:
 
 
 class RoleLoader:
+    def __init__(self, name: str):
+        self.name = name
+
     def load_parsed_tasks(self, tasks: YamlDict):
         for task_info in tasks:
             self.ansible_role.add_task(task_info)
 
     def load_parsed_handlers(self, handlers: YamlDict):
         for info in handlers:
-            h = AnsibleRoleFilesystem(info["name"], root=self.root, uses_facts=False)
+            h = self.ansible_role.create_handler_role(info["name"])
             h.add_task(info)
             self.ansible_role.handlers[info["name"]] = h
 
@@ -64,9 +67,8 @@ class RoleLoader:
 
 class FilesystemRoleLoader(RoleLoader):
     def __init__(self, name: str, roles_root: str = "roles"):
-        super().__init__()
+        super().__init__(name)
         self.root = os.path.join(roles_root, name)
-        # TODO: make something to create a subrole from self.ansible_role
         self.ansible_role = AnsibleRoleFilesystem(name=name, root=self.root)
 
     def load_tasks(self):
@@ -102,10 +104,9 @@ class ZipRoleLoader(RoleLoader):
     trees.
     """
     def __init__(self, name: str, path: str):
-        super().__init__()
-        self.name = name
+        super().__init__(name)
         self.zipfile = zipfile.ZipFile(path, "r")
-        self.ansible_role = AnsibleRoleZip(name=name, zipfile=self.zipfile, root=os.path.join("roles", self.name))
+        self.ansible_role = AnsibleRoleZip(name=name, archive=self.zipfile, root=os.path.join("roles", self.name))
 
     def load_tasks(self):
         try:

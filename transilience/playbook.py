@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Sequence, Union, Type
+from typing import Sequence, Union, Type, Optional
 import threading
 import argparse
 import tempfile
@@ -14,17 +14,15 @@ try:
 except ModuleNotFoundError:
     coloredlogs = None
 from .runner import Runner
-from .role import Role
-
-
-if TYPE_CHECKING:
-    from transilience.hosts import Host
+from .role import Role, Loader
+from .hosts import Host
 
 
 class Playbook:
     def __init__(self):
         self.progress = logging.getLogger("progress")
         self.run_context = threading.local()
+        self.role_loader: Optional[Loader] = None
 
     def setup_logging(self):
         FORMAT = "%(asctime)-15s %(levelname)s %(name)s %(message)s"
@@ -64,6 +62,8 @@ class Playbook:
                             help="verbose output")
         parser.add_argument("-C", "--check", action="store_true",
                             help="do not perform changes, but check if changes would be needed")
+        parser.add_argument("--local", action="store_true",
+                            help="ignore the host list provided, and run the playbook on localhost")
         group = parser.add_mutually_exclusive_group()
         group.add_argument("--ansible-to-python", action="store", metavar="role",
                            help="print the given Ansible role as Transilience Python code")
@@ -96,7 +96,9 @@ class Playbook:
         if not hasattr(self.run_context, "runner"):
             raise RuntimeError(f"{self.__class__.__name__}.add_role cannot be called outside of a host thread")
         if isinstance(role_cls, str):
-            role_cls = Role.load(role_cls)
+            if self.role_loader is None:
+                raise RuntimeError("could not find a way to load roles")
+            role_cls = self.role_loader.load(role_cls)
         self.run_context.runner.add_role(role_cls, **kw)
 
     def start(self, host: Host):
@@ -107,13 +109,20 @@ class Playbook:
         """
         raise NotImplementedError(f"{self.__class__.__name__}.start is not implemented")
 
-    def role_to_python(self, name: str, file=None):
+    def _load_ansible(self, name: str):
         """
-        Print the Python code generated from the given Ansible role
+        Return an ansible.RoleLoader for a role with the given name
         """
         from .ansible import FilesystemRoleLoader
         loader = FilesystemRoleLoader(name)
         loader.load()
+        return loader
+
+    def role_to_python(self, name: str, file=None):
+        """
+        Print the Python code generated from the given Ansible role
+        """
+        loader = self._load_ansible(name)
         print(loader.get_python_code(), file=file)
 
     def role_to_ast(self, name: str, file=None):
@@ -130,9 +139,7 @@ class Playbook:
         else:
             indent = None
 
-        from .ansible import FilesystemRoleLoader
-        loader = FilesystemRoleLoader(name)
-        loader.load()
+        loader = self._load_ansible(name)
         json.dump(loader.ansible_role.to_jsonable(), file, indent=indent)
 
     def zipapp(self, target: str, interpreter=None):
@@ -152,6 +159,7 @@ class Playbook:
             # Copy argv[0] as __main__.py
             shutil.copy(sys.argv[0], os.path.join(workdir, "__main__.py"))
             # Copy argv[0]/roles
+            # TODO: use self.role_loader to copy the role_dir
             role_dir = os.path.join(os.path.dirname(sys.argv[0]), "roles")
             if os.path.isdir(role_dir):
                 shutil.copytree(role_dir, os.path.join(workdir, "roles"))
@@ -173,17 +181,27 @@ class Playbook:
             self.role_to_ast(self.args.ansible_to_ast)
             return
 
+        self.role_loader = Loader.create()
+
         if self.args.zipapp:
             self.zipapp(target=self.args.zipapp)
             return
 
-        # Start all the runners in separate threads
-        threads = []
-        for host in self.hosts():
-            t = threading.Thread(target=self.thread_main, args=(host,))
-            threads.append(t)
-            t.start()
+        if self.args.local:
+            hosts = [Host(name="local", type="Local")]
+        else:
+            hosts = list(self.hosts())
 
-        # Wait for all threads to complete
-        for t in threads:
-            t.join()
+        if len(hosts) == 1:
+            self.thread_main(hosts[0])
+        else:
+            # Start all the runners in separate threads
+            threads = []
+            for host in hosts:
+                t = threading.Thread(target=self.thread_main, args=(host,))
+                threads.append(t)
+                t.start()
+
+            # Wait for all threads to complete
+            for t in threads:
+                t.join()

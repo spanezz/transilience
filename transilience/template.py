@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, List, Dict, Any, Sequence
+from typing import Optional, List, Dict, Any, Sequence, Union
 import zipfile
 import os
 import jinja2
@@ -70,8 +70,8 @@ class EngineFilesystem(Engine):
 
 
 class ZipLoader(jinja2.BaseLoader):
-    def __init__(self, zipfile: zipfile.ZipFile, root: str):
-        self.zipfile = zipfile
+    def __init__(self, archive: zipfile.ZipFile, root: str):
+        self.zipfile = archive
         self.root = root
 
     def get_source(self, environment: jinja2.Environment, template: str):
@@ -82,6 +82,16 @@ class ZipLoader(jinja2.BaseLoader):
 
 
 class EngineZip(Engine):
-    def __init__(self, zipfile: zipfile.ZipFile, root: str):
-        loader = ZipLoader(zipfile, root)
-        super().__init__(loader)
+    def __init__(self, archive: Union[str, zipfile.ZipFile], root: str):
+        if isinstance(archive, str):
+            archive = zipfile.ZipFile(archive, "r")
+        self.loader = ZipLoader(archive, root)
+        super().__init__(self.loader)
+
+    def list_file_template_vars(self, path: str) -> Sequence[str]:
+        """
+        List the template variables used by this template string
+        """
+        source = self.loader.get_source(self.env, path)
+        ast = self.env.parse(source, "<template>", path)
+        return jinja2.meta.find_undeclared_variables(ast)
