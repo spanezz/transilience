@@ -62,8 +62,8 @@ class Playbook:
                             help="verbose output")
         parser.add_argument("-C", "--check", action="store_true",
                             help="do not perform changes, but check if changes would be needed")
-        parser.add_argument("--local", action="store_true",
-                            help="ignore the host list provided, and run the playbook on localhost")
+        parser.add_argument("--local", action="store",
+                            help="run the playbook for the given host name, on the local system")
         group = parser.add_mutually_exclusive_group()
         group.add_argument("--ansible-to-python", action="store", metavar="role",
                            help="print the given Ansible role as Transilience Python code")
@@ -193,7 +193,12 @@ class Playbook:
             return
 
         if self.args.local:
-            hosts = [Host(name="local", type="Local")]
+            hosts = [h for h in self.hosts() if h.name == self.args.local]
+            if not hosts:
+                raise RuntimeError(f"No host found matching {self.args.local}")
+            for h in hosts:
+                h.type = "Local"
+                h.args = {}
         else:
             hosts = list(self.hosts())
 
