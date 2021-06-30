@@ -16,6 +16,9 @@ log = logging.getLogger(__name__)
 
 
 class ProcessPrivs:
+    """
+    Drop root privileges and regain them only when needed
+    """
     def __init__(self):
         self.orig_uid, self.orig_euid, self.orig_suid = os.getresuid()
         self.orig_gid, self.orig_egid, self.orig_sgid = os.getresgid()
@@ -29,6 +32,9 @@ class ProcessPrivs:
         self.dropped = False
 
     def drop(self):
+        """
+        Drop root privileges
+        """
         if self.dropped:
             return
         os.setresgid(self.user_gid, self.user_gid, 0)
@@ -36,6 +42,9 @@ class ProcessPrivs:
         self.dropped = True
 
     def regain(self):
+        """
+        Regain root privileges
+        """
         if not self.dropped:
             return
         os.setresuid(self.orig_suid, self.orig_suid, self.user_uid)
@@ -44,6 +53,9 @@ class ProcessPrivs:
 
     @contextlib.contextmanager
     def root(self):
+        """
+        Regain root privileges for the duration of this context manager
+        """
         if not self.dropped:
             yield
         else:
@@ -55,6 +67,9 @@ class ProcessPrivs:
 
     @contextlib.contextmanager
     def user(self):
+        """
+        Drop root privileges for the duration of this context manager
+        """
         if self.dropped:
             yield
         else:
@@ -70,6 +85,9 @@ privs.drop()
 
 
 class Chroot:
+    """
+    Manage an ephemeral chroot
+    """
     running_chroots: Dict[str, "Chroot"] = {}
 
     def __init__(self, name: str, chroot_dir: Optional[str] = None):
@@ -120,6 +138,9 @@ class Chroot:
         self.running_chroots[self.machine_name] = self
 
     def stop(self):
+        """
+        Stop the running ephemeral containers
+        """
         cmd = ["machinectl", "terminate", self.machine_name]
         log.debug("%s: running %s", self.machine_name, " ".join(shlex.quote(c) for c in cmd))
         with privs.root():
@@ -129,12 +150,18 @@ class Chroot:
 
     @classmethod
     def create(cls, chroot_name: str) -> "Chroot":
+        """
+        Start an ephemeral machine from the given master chroot
+        """
         res = cls(chroot_name)
         res.start()
         return res
 
     @classmethod
     def get_chroot_dir(cls, chroot_name: str):
+        """
+        Locate a master chroot under test_chroots/
+        """
         chroot_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test_chroots", chroot_name))
         if not os.path.isdir(chroot_dir):
             raise RuntimeError(f"{chroot_dir} does not exists or is not a chroot directory")
