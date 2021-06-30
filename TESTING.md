@@ -11,7 +11,7 @@ based on my work on [nspawn-runner](https://github.com/Truelite/nspawn-runner).
 ## Prerequisites
 
 ```
-apt install systemd-container btrfs-progs eatmydata
+apt install systemd-container btrfs-progs eatmydata debootstrap
 ```
 
 The `test_chroots/` directory needs to be on a `btrfs` filesystem. If you are
