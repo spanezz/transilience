@@ -1,0 +1,25 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+      - name: Install dependencies and project
+        run: |
+          sudo apt install systemd-container btrfs-progs eatmydata debootstrap python3-pip python3-nose2
+          sudo python3 -m pip install .
+      - name: Setup btrfs for tests
+        run: |
+          fallocate -l 1.5G testfile
+          /usr/sbin/mkfs.btrfs testfile
+          mkdir test_chroots
+          sudo mount -o loop testfile test_chroots/
+      - name: Create master chroot
+        run: sudo ./make-test-chroot buster
+      - name: Run tests
+        run: sudo nose2-3 --verbose
