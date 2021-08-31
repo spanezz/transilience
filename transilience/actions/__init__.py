@@ -12,5 +12,6 @@ from . import apt  # noqa
 from . import command  # noqa
 from . import systemd  # noqa
 from . import user  # noqa
+from . import git  # noqa
 
 __all__ = ["Action", "ResultState", "Namespace", "builtin", "facts"]
