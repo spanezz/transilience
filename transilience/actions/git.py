@@ -10,12 +10,15 @@ import contextlib
 import subprocess
 import shutil
 import shlex
+import re
 import os
 from .action import Action
 from . import builtin
 
 if TYPE_CHECKING:
     import transilience.system
+
+re_shasum = re.compile(f"^[0-9a-f]{40}$")
 
 
 @builtin.action(name="git")
@@ -75,17 +78,6 @@ class Git(Action):
     update: bool = True
     verify_commit: bool = False
     version: str = "HEAD"
-
-    def __post_init__(self):
-        super().__post_init__()
-        if self.separate_git_dir and self.bare:
-            raise ValueError(f"{self.__class__}: separate_git_dir and bare cannot both be set")
-        if self.archive_prefix is not None and self.archive is None:
-            raise ValueError(f"{self.__class__}: archive_prefix needs archive to be set")
-        if self.dest is None and self.allow_clone:
-            raise ValueError(f"{self.__class__}: dest must be specified if clone is True")
-        if isinstance(self.ssh_opts, str):
-            self.ssh_opts = shlex.split(self.ssh_opts)
 
     @contextlib.contextmanager
     def set_umask(self):
@@ -403,36 +395,30 @@ class Git(Action):
         branch = self.branch_from_head(headfile)
         return branch
 
+    def is_shasum(self, s: str):
+        return re_shasum.match(s)
+
     def get_remote_head(self):
-        tag = False
+        """
+        Get the shasum of self.version on the remote
+        """
+        cmd = ["rev-parse"]
+
         if self.version == 'HEAD':
             head_branch = self.get_head_branch()
-            cmd = ["ls-remote", self.remote, "--heads", "refs/heads/" + head_branch]
-        elif self.is_remote_branch():
-            cmd = ["ls-remote", self.remote, "--heads", "refs/heads/" + self.version]
-        elif self.is_remote_tag():
-            tag = True
-            cmd = ["ls-remote", self.remote, "--tags", "refs/tags/" + self.version]
-        else:
+            cmd.append(f"{self.remote}/{head_branch}")
+        elif self.is_shasum(self.version):
             # appears to be a sha1.  return as-is since it appears
             # cannot check for a specific sha1 on remote
             return self.version
+        else:
+            cmd.append(f"{self.remote}/{self.version}")
 
         res = self.run_git(cmd, capture_output=True, text=True, cwd=self.dest)
         if not res.stdout:
             raise RuntimeError(f"Could not determine remote revision for {self.version}")
 
-        out = res.stdout
-        if tag:
-            # Find the dereferenced tag if this is an annotated tag.
-            for tag in res.stdout.splitlines():
-                if tag.endswith(self.version + '^{}'):
-                    out = tag
-                    break
-                elif tag.endswith(self.version):
-                    out = tag
-
-        return out.split()[0]
+        return res.stdout.strip()
 
     def get_version(self, ref: str = "HEAD"):
         """
@@ -441,54 +427,6 @@ class Git(Action):
         cmd = ["rev-parse", ref]
         res = self.run_git(cmd, capture_output=True, text=True, cwd=self.dest)
         return res.stdout.strip()
-
-    def do_fetch(self):
-        """
-        Updates repo from remote sources
-        """
-        self.set_remote_url()
-
-        fetch_cmd = ['fetch']
-
-        refspecs = []
-        if self.depth:
-            # try to find the minimal set of refs we need to fetch to get a
-            # successful checkout
-            currenthead = self.get_head_branch()
-            if self.refspec:
-                refspecs.append(self.refspec)
-            elif self.version == 'HEAD':
-                refspecs.append(currenthead)
-            elif self.is_remote_branch():
-                refspecs.append(
-                        f"+refs/heads/{self.version}:refs/remotes/{self.remote}/{self.version}")
-            elif self.is_remote_tag():
-                refspecs.append(f"+refs/tags/{self.version}:refs/tags/{self.version}")
-            if refspecs:
-                # if refspecs is empty, i.e. version is neither heads nor tags
-                # assume it is a version hash
-                # fall back to a full clone, otherwise we might not be able to checkout
-                # version
-                fetch_cmd.extend(['--depth', str(self.depth)])
-
-        if not self.depth or not refspecs:
-            # don't try to be minimalistic but do a full clone
-            # also do this if depth is given, but version is something that can't be fetched directly
-            if self.bare:
-                refspecs = ['+refs/heads/*:refs/heads/*', '+refs/tags/*:refs/tags/*']
-            else:
-                # ensure all tags are fetched
-                fetch_cmd.append('--tags')
-            if self.refspec:
-                refspecs.append(self.refspec)
-
-        if self.force:
-            fetch_cmd.append('--force')
-
-        fetch_cmd.extend([self.remote])
-        fetch_cmd.extend(refspecs)
-
-        self.run_git(fetch_cmd, cwd=self.dest)
 
     def set_remote_branch(self):
         """
@@ -577,6 +515,17 @@ class Git(Action):
         #                 break
         return changed
 
+    def __post_init__(self):
+        super().__post_init__()
+        if self.separate_git_dir and self.bare:
+            raise ValueError(f"{self.__class__}: separate_git_dir and bare cannot both be set")
+        if self.archive_prefix is not None and self.archive is None:
+            raise ValueError(f"{self.__class__}: archive_prefix needs archive to be set")
+        if self.dest is None and self.allow_clone:
+            raise ValueError(f"{self.__class__}: dest must be specified if clone is True")
+        if isinstance(self.ssh_opts, str):
+            self.ssh_opts = shlex.split(self.ssh_opts)
+
     def action_run(self, system: transilience.system.system):
         super().action_run(system)
 
@@ -592,33 +541,56 @@ class Git(Action):
         self.repo = self._normalise_repo_path(self.repo)
 
         if self.separate_git_dir:
-            self.separate_git_dir = os.path.realpath(self.separate_git_dir)
+            self.separate_git_dir = os.path.abspath(self.separate_git_dir)
+
+        if self.accept_hostkey:
+            if "StrictHostKeyChecking=no" not in self.ssh_opts:
+                self.ssh_opts += ["-o", "StrictHostKeyChecking=no"]
+
+        # If we have 'bare', 'dest' is a .git directory, and we don't have separate_git_dir
+        # If we do not have 'bare', 'dest' is the worktree, and the .git
+        #    directory is either "{dest}/.git", or "{separate_git_dir}"
+
+        if not self.repo:
+            # If we do not have 'dest', it looks like ansible takes it as "just
+            #    fetch information about the remote repo": the code path when
+            #    'dest' is missing seems to boil down to just:
+            #
+            #    # if there is no git configuration, do a clone operation unless:
+            #    # * the user requested no clone (they just want info)
+            #    # * we're doing a check mode test
+            #    # In those cases we do an ls-remote
+            #    if module.check_mode or not allow_clone:
+            #        remote_head = get_remote_head(git_path, module, dest, version, repo, bare)
+            #        result.update(changed=True, after=remote_head)
+            #        if module._diff:
+            #            diff = get_diff(module, git_path, dest, repo, remote,
+            #                            depth, bare, result['before'], result['after'])
+            #            if diff:
+            #                result['diff'] = diff
+            #        module.exit_json(**result)
+            return
 
         # evaluate and set the umask before doing anything else
         with self.set_umask():
-            if self.accept_hostkey:
-                if "StrictHostKeyChecking=no" not in self.ssh_opts:
-                    self.ssh_opts += ["-o", "StrictHostKeyChecking=no"]
+            self.dest = os.path.abspath(self.dest)
+            repo_path = self.get_repo_path()
 
-            gitconfig = None
-            if self.dest:
-                self.dest = os.path.abspath(self.dest)
-                repo_path = self.get_repo_path()
+            # It might be that the current .git directory is not where
+            # separate_git_dir wants it: if that is the case, move it
+            if self.separate_git_dir and os.path.exists(repo_path) and self.separate_git_dir != repo_path:
+                # TODO: review
+                self.log.info("relocating git repo from %r to %r, keeping working tree at %s",
+                              repo_path, self.separate_git_dir, self.dest)
+                if not self.check:
+                    self.relocate_repo(self.separate_git_dir, repo_path, self.dest)
+                    repo_path = self.separate_git_dir
+                self.set_changed()
 
-                # It might be that the current .git directory is not where
-                # separate_git_dir wants it: if that is the case, move it
-                if self.separate_git_dir and os.path.exists(repo_path) and self.separate_git_dir != repo_path:
-                    self.log.info("relocating git repo from %r to %r, keeping working tree at %s",
-                                  repo_path, self.separate_git_dir, self.dest)
-                    if not self.check:
-                        self.relocate_repo(self.separate_git_dir, repo_path, self.dest)
-                        repo_path = self.separate_git_dir
-                    self.set_changed()
-
-                gitconfig = os.path.join(repo_path, 'config')
+            gitconfig = os.path.join(repo_path, 'config')
 
             local_mods = False
-            if gitconfig is None or not os.path.exists(gitconfig):
+            if not os.path.exists(gitconfig):
                 # If there is no git configuration, do a clone operation unless:
                 # * the user requested no clone (they just want info)
                 # * we're doing a check mode test
@@ -628,6 +600,9 @@ class Git(Action):
                     self.log.info("Would clone %r to %r", self.repo, self.dest)
                     self.set_changed()
                     return
+
+                # FIXME: check signatures before producing a working directory!
+
                 # There's no git config, so clone
                 self.do_clone()
             elif self.update:
@@ -643,37 +618,30 @@ class Git(Action):
                         self.log.info("%s: resetting local modifications", self.dest)
                         self.set_changed()
 
-                # Exit if already at desired sha version
-                if self.check:
-                    remote_url = self.get_remote_url()
-                    remote_url_changed = (
-                            remote_url
-                            and remote_url != self.repo
-                            and self._normalise_repo_path(remote_url) != self.repo
-                    )
-                    if remote_url_changed:
-                        self.log.info("%s: remote url changed to %r", self.dest, remote_url)
-                        self.set_changed()
-                else:
-                    remote_url_changed = self.set_remote_url()
+                # Update remote information if requested
+                self.set_remote_url()
 
-                if self.check:
-                    if self.get_version() != self.get_remote_head():
-                        self.log.info("%s: remote HEAD changed")
-                        self.set_changed()
-                    return
-                else:
-                    self.do_fetch()
+                # Fetch from upstream
+                fetch_cmd = ['fetch', '--tags']
+                fetch_cmd.extend([self.remote])
+                self.run_git(fetch_cmd, cwd=self.dest)
 
-                # result['after'] = get_version(module, git_path, dest)
+                # TODO: check signatures HERE!
 
-                # switch to version specified regardless of whether
-                # we got new revisions from the repository
-                if not self.bare:
-                    self.log.info("%s: checkout new version", self.dest)
-                    if not self.check:
-                        self.do_switch_version()
+                if self.get_version() != self.get_remote_head():
+                    self.log.info("%s: remote HEAD changed", self.dest)
                     self.set_changed()
+                    if not self.check:
+                        # result['after'] = get_version(module, git_path, dest)
+
+                        # switch to version specified regardless of whether
+                        # we got new revisions from the repository
+                        if not self.bare:
+                            self.log.info("%s: checkout new version", self.dest)
+                            self.do_switch_version()
+                            self.set_changed()
+
+            # TODO: refactor from here
 
             # Deal with submodules
             submodules_updated = False
@@ -712,99 +680,7 @@ class Git(Action):
 
 # TODO ~ TODO ~ TODO ~ TODO ~ TODO ~ TODO ~ TODO ~ TODO ~ TODO ~ TODO:
 
-# TODO: Turn into tests
-# EXAMPLES = '''
-# - name: Git checkout
-#   ansible.builtin.git:
-#     repo: 'https://foosball.example.org/path/to/repo.git'
-#     dest: /srv/checkout
-#     version: release-0.22
-#
-# - name: Read-write git checkout from github
-#   ansible.builtin.git:
-#     repo: git@github.com:mylogin/hello.git
-#     dest: /home/mylogin/hello
-#
-# - name: Just ensuring the repo checkout exists
-#   ansible.builtin.git:
-#     repo: 'https://foosball.example.org/path/to/repo.git'
-#     dest: /srv/checkout
-#     update: no
-#
-# - name: Just get information about the repository whether or not it has already been cloned locally
-#   ansible.builtin.git:
-#     repo: 'https://foosball.example.org/path/to/repo.git'
-#     dest: /srv/checkout
-#     clone: no
-#     update: no
-#
-# - name: Checkout a github repo and use refspec to fetch all pull requests
-#   ansible.builtin.git:
-#     repo: https://github.com/ansible/ansible-examples.git
-#     dest: /src/ansible-examples
-#     refspec: '+refs/pull/*:refs/heads/*'
-#
-# - name: Create git archive from repo
-#   ansible.builtin.git:
-#     repo: https://github.com/ansible/ansible-examples.git
-#     dest: /src/ansible-examples
-#     archive: /tmp/ansible-examples.zip
-#
-# - name: Clone a repo with separate git directory
-#   ansible.builtin.git:
-#     repo: https://github.com/ansible/ansible-examples.git
-#     dest: /src/ansible-examples
-#     separate_git_dir: /src/ansible-examples.git
-#
-# - name: Example clone of a single branch
-#   ansible.builtin.git:
-#     repo: https://github.com/ansible/ansible-examples.git
-#     dest: /src/ansible-examples
-#     single_branch: yes
-#     version: master
-#
-# - name: Avoid hanging when http(s) password is missing
-#   ansible.builtin.git:
-#     repo: https://github.com/ansible/could-be-a-private-repo
-#     dest: /src/from-private-repo
-#   environment:
-#     GIT_TERMINAL_PROMPT: 0 # reports "terminal prompts disabled" on missing password
-#     # or GIT_ASKPASS: /bin/true # for git before version 2.3.0, reports "Authentication failed" on missing password
-# '''
 
-# RETURN = '''
-# after:
-#     description: Last commit revision of the repository retrieved during the update.
-#     returned: success
-#     type: str
-#     sample: 4c020102a9cd6fe908c9a4a326a38f972f63a903
-# before:
-#     description: Commit revision before the repository was updated, "null" for new repository.
-#     returned: success
-#     type: str
-#     sample: 67c04ebe40a003bda0efb34eacfb93b0cafdf628
-# remote_url_changed:
-#     description: Contains True or False whether or not the remote URL was changed.
-#     returned: success
-#     type: bool
-#     sample: True
-# warnings:
-#     description: List of warnings if requested features were not available due to a too old git version.
-#     returned: error
-#     type: str
-#     sample: git version is too old to fully support the depth argument. Falling back to full checkouts.
-# git_dir_now:
-#     description: Contains the new path of .git directory if it is changed.
-#     returned: success
-#     type: str
-#     sample: /path/to/new/git/dir
-# git_dir_before:
-#     description: Contains the original path of .git directory if it is changed.
-#     returned: success
-#     type: str
-#     sample: /path/to/old/git/dir
-# '''
-#
 # import filecmp
 # import os
 # import re
