@@ -66,9 +66,9 @@ class Copy(FileAction):
 
     def action_summary(self):
         if self.content is not None:
-            return "Replace contents of {self.dest!r}"
+            return f"Replace contents of {self.dest!r}"
         else:
-            return "Copy {self.src!r} to {self.dest!r}"
+            return f"Copy {self.src!r} to {self.dest!r}"
 
     def list_local_files_needed(self) -> List[str]:
         res = super().list_local_files_needed()
