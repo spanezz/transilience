@@ -233,20 +233,20 @@ class Generic:
             except KeyError:
                 return None
 
-    def user_group_membership(self, exclude_primary=True) -> List[str]:
+    def user_group_membership(self, exclude_primary=True) -> Set[str]:
         """
         Return a list of groups the user belongs to
         """
-        groups: List[str] = []
+        groups: Set[str] = set()
         info = self.get_pwd_info()
         for group in grp.getgrall():
             if self.action.name in group.gr_mem:
                 # Exclude the user's primary group by default
                 if not exclude_primary:
-                    groups.append(group[0])
+                    groups.add(group[0])
                 else:
                     if info.pw_gid != group.gr_gid:
-                        groups.append(group.gr_name)
+                        groups.add(group.gr_name)
 
         return groups
 
