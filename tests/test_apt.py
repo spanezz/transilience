@@ -1,12 +1,13 @@
 from __future__ import annotations
-from typing import Dict, Tuple
 import contextlib
+import os
+import shlex
+import tempfile
+import time
 import unittest
 from unittest import mock
-import tempfile
-import shlex
-import time
-import os
+from typing import Dict, Tuple
+
 from transilience.unittest import ActionTestMixin, LocalTestMixin, ChrootTestMixin
 from transilience.actions import builtin
 from transilience.actions.apt import DpkgStatus
@@ -249,3 +250,23 @@ class TestAptReal(ActionTestMixin, ChrootTestMixin, unittest.TestCase):
             ))
 
         self.assertTrue(self.system.context.call(os.path.exists, "/usr/bin/hello"))
+
+    def test_install_nonexisting(self):
+        act = self.run_action(
+            builtin.apt(
+                name=["does-not-exist"],
+                state="present",
+            ), failed=True)
+        self.assertEqual(act.result.exc_type, "CalledProcessError")
+        self.assertEqual(act.result.exc_val,
+                         "Command '['/usr/bin/apt-get', '-q', '-y', '--option=Dpkg::Options::=--force-confdef',"
+                         " '--option=Dpkg::Options::=--force-confold', 'install', 'does-not-exist']'"
+                         " returned non-zero exit status 100.")
+        self.assertEqual(len(act.result.command_log), 1)
+        cl = act.result.command_log[0]
+        self.assertEqual(cl.cmdline, [
+            '/usr/bin/apt-get', '-q', '-y',
+            '--option=Dpkg::Options::=--force-confdef',
+            '--option=Dpkg::Options::=--force-confold', 'install',
+            'does-not-exist'])
+        self.assertEqual(cl.stderr, "E: Unable to locate package does-not-exist\n")

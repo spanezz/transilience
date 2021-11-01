@@ -1,13 +1,14 @@
 from __future__ import annotations
-from typing import Optional, Union, Dict
-import contextlib
-import subprocess
-import logging
 import atexit
+import contextlib
+import logging
+import os
 import shlex
 import stat
+import sys
+import subprocess
+from typing import Optional, Union, Dict
 import uuid
-import os
 from .actions import ResultState
 from .hosts import Host
 from .runner import Runner
@@ -308,14 +309,23 @@ class ActionTestMixin:
     """
     Test case mixin with common shortcuts for running actions
     """
-    def run_action(self, action, changed=True):
+    def run_action(self, action, changed=True, failed=False):
         act = self.system.execute(action)
-        self.assertIsInstance(act, action.__class__)
-        if changed:
-            self.assertEqual(act.result.state, ResultState.CHANGED)
-        else:
-            self.assertEqual(act.result.state, ResultState.NOOP)
-        self.assertEqual(act.uuid, action.uuid)
+        try:
+            self.assertIsInstance(act, action.__class__)
+            if failed:
+                self.assertEqual(act.result.state, ResultState.FAILED)
+            elif changed:
+                self.assertEqual(act.result.state, ResultState.CHANGED)
+            else:
+                self.assertEqual(act.result.state, ResultState.NOOP)
+            self.assertEqual(act.uuid, action.uuid)
+        except AssertionError:
+            # import traceback
+            # traceback.print_stack()
+            # traceback.print_exc()
+            act.result.print(file=sys.stderr)
+            raise
         return act
 
 

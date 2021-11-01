@@ -14,11 +14,11 @@ def read_umask() -> int:
 
 
 class FileTestMixin(FileModeMixin, ActionTestMixin):
-    def run_file_action(self, changed=True, **kw):
+    def run_file_action(self, changed=True, failed=False, **kw):
         with self.assertUnchanged(kw["path"]):
-            self.run_action(builtin.file(check=True, **kw), changed=changed)
+            self.run_action(builtin.file(check=True, **kw), changed=changed, failed=failed)
 
-        return self.run_action(builtin.file(**kw), changed=changed)
+        return self.run_action(builtin.file(**kw), changed=changed, failed=failed)
 
 
 class TouchTests(FileTestMixin):
@@ -87,8 +87,7 @@ class FileTests(FileTestMixin):
     def test_create(self):
         with tempfile.TemporaryDirectory() as workdir:
             testfile = os.path.join(workdir, "testfile")
-            with self.assertRaises(Exception):
-                self.run_file_action(path=testfile, state="file", mode=0o640, changed=False)
+            self.run_file_action(path=testfile, state="file", mode=0o640, changed=False, failed=True)
             self.assertFalse(os.path.exists(testfile))
 
     def test_exists(self):

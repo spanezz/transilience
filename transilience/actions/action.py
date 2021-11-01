@@ -1,18 +1,19 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Dict, Any, Optional
+import base64
 from dataclasses import dataclass, field, fields, asdict, is_dataclass
 import contextlib
-import subprocess
-import traceback
 import importlib
 import logging
-import shutil
-import base64
-import shlex
-import time
-import uuid
-import sys
 import os
+import shlex
+import shutil
+import subprocess
+import sys
+import textwrap
+import time
+import traceback
+from typing import TYPE_CHECKING, List, Dict, Any, Optional
+import uuid
 from ..fileasset import FileAsset
 
 if TYPE_CHECKING:
@@ -48,6 +49,16 @@ class ResultState:
 
 
 @dataclass
+class CommandResult:
+    """
+    Store information about one command run by an action
+    """
+    cmdline: List[str] = field(default_factory=list)
+    stderr: Optional[str] = None
+    returncode: Optional[int] = None
+
+
+@dataclass
 class Result:
     """
     Store information about the execution of an action
@@ -62,6 +73,8 @@ class Result:
     exc_val: Optional[str] = None
     # Exception traceback, formatted
     exc_tb: List[str] = field(default_factory=list)
+    # Trace of commands run by this action
+    command_log: List[CommandResult] = field(default_factory=list)
 
     @contextlib.contextmanager
     def collect(self):
@@ -70,12 +83,36 @@ class Result:
             yield
         except Exception as e:
             self.state = ResultState.FAILED
-            self.exc_type = str(e.__class__)
+            self.exc_type = e.__class__.__name__
             self.exc_val = str(e)
             self.exc_tb = traceback.format_tb(sys.exc_info()[2])
-            raise
         finally:
             self.elapsed = time.perf_counter_ns() - start_ns
+
+    def print(self, file=sys.stdout):
+        print("State:", self.state, file=file)
+        print("Elapsed:", self.elapsed, file=file)
+        print("Exception type:", self.exc_type, file=file)
+        print("Exception value:", self.exc_val, file=file)
+        print("Exception traceback:", "[]" if not self.exc_val else "", file=file)
+        for row in self.exc_tb:
+            print("    " + row.rstrip(), file=file)
+        print("Commands run:", "[]" if not self.command_log else "", file=file)
+        for cr in self.command_log:
+            print("    Command: ", " ".join(shlex.quote(c) for c in cr.cmdline), file=file)
+            print("    Returncode: ", cr.returncode, file=file)
+            print("    Stderr: ", "-" if not cr.stderr else "", file=file)
+            print(textwrap.indent(cr.stderr, "        "), file=file)
+
+    @classmethod
+    def deserialize(cls, serialized: Dict[str, Any]) -> "Result":
+        """
+        Deserialize a Result from a dict
+        """
+        command_log = serialized.pop("command_log", None)
+        if command_log is not None:
+            command_log = [CommandResult(**cr) for cr in command_log]
+        return cls(command_log=command_log, **serialized)
 
 
 @dataclass
@@ -134,7 +171,30 @@ class Action:
         if "env" not in kw:
             kw["env"] = dict(os.environ)
             kw["env"]["LANG"] = "C"
-        return subprocess.run(cmd, check=check, **kw)
+
+        command_log = CommandResult(cmdline=cmd)
+        try:
+            res = subprocess.run(cmd, check=check, **kw)
+        except subprocess.CalledProcessError as e:
+            if e.stderr is None:
+                command_log.stderr = None
+            elif isinstance(e.stderr, str):
+                command_log.stderr = e.stderr
+            else:
+                command_log.stderr = e.stderr.decode(errors="surrogateescape")
+            command_log.returncode = e.returncode
+            raise
+        else:
+            if res.stderr is None:
+                command_log.stderr = None
+            elif isinstance(res.stderr, str):
+                command_log.stderr = res.stderr
+            else:
+                command_log.stderr = res.stderr.decode(errors="surrogateescape")
+            command_log.returncode = res.returncode
+        finally:
+            self.result.command_log.append(command_log)
+        return res
 
     def action_run(self, system: transilience.system.System):
         """
@@ -229,7 +289,7 @@ class Action:
             raise ValueError(f"action {action_name!r} not found in transilience.actions")
         if not issubclass(action_cls, Action):
             raise ValueError(f"action {action_name!r} is not an subclass of transilience.actions.Action")
-        serialized["result"] = Result(**serialized["result"])
+        serialized["result"] = Result.deserialize(serialized["result"])
         return action_cls(**serialized)
 
     @classmethod
@@ -269,7 +329,7 @@ class Action:
         for name in file_assets:
             serialized[name] = FileAsset.deserialize(serialized[name])
 
-        serialized["result"] = Result(**serialized["result"])
+        serialized["result"] = Result.deserialize(serialized["result"])
         return action_cls(**serialized)
 
 # https://docs.ansible.com/ansible/latest/collections/index_module.html
