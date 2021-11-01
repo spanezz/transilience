@@ -104,6 +104,25 @@ class Result:
             print("    Stderr: ", "-" if not cr.stderr else "", file=file)
             print(textwrap.indent(cr.stderr, "        "), file=file)
 
+    def log(self, logger):
+        logger("State: %s", self.state)
+        logger("Elapsed: %s", self.elapsed)
+        logger("Exception type: %s", self.exc_type)
+        logger("Exception value: %r", self.exc_val)
+        if self.exc_tb:
+            logger("Exception traceback:")
+            for row in self.exc_tb:
+                logger("  %s", row.rstrip())
+        if self.command_log:
+            logger("Commands run:")
+            for cr in self.command_log:
+                logger("  Command: %s", " ".join(shlex.quote(c) for c in cr.cmdline))
+                logger("  Returncode: %d", cr.returncode)
+                if cr.stderr:
+                    logger("  Stderr:")
+                    for line in cr.stderr.splitlines():
+                        logger("    %s", line.rstrip())
+
     @classmethod
     def deserialize(cls, serialized: Dict[str, Any]) -> "Result":
         """

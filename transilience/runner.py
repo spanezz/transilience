@@ -160,8 +160,10 @@ class Runner:
         return notified
 
     def _notify_action_to_roles(self, pending: PendingAction, action: Action, cached: bool = False):
+        log_result = False
         if action.result.state == ResultState.FAILED:
             log_fun = self.progress.error
+            log_result = True
         elif action.result.state == ResultState.CHANGED:
             log_fun = self.progress.warning
         else:
@@ -176,6 +178,10 @@ class Runner:
             log_fun("%s: %s%s", self.system.name,
                     f"[{action.result.state} {elapsed}] {role.name} {pending.summary}",
                     " (check)" if self.check_mode else "")
+
+            if log_result:
+                action.result.log(log_fun)
+
             role.on_action(pending, action)
 
             # Mark role as done if there are no more tasks
