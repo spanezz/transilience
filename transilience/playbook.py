@@ -173,6 +173,24 @@ class Playbook:
             # Turn everything into a zipapp
             zipapp.create_archive(workdir, target, interpreter=interpreter, compressed=True)
 
+    def provision(self, hosts: Sequence[Host]):
+        """
+        Run provisioning on the given hosts
+        """
+        if len(hosts) == 1:
+            self.thread_main(hosts[0])
+        else:
+            # Start all the runners in separate threads
+            threads = []
+            for host in hosts:
+                t = threading.Thread(target=self.thread_main, args=(host,))
+                threads.append(t)
+                t.start()
+
+            # Wait for all threads to complete
+            for t in threads:
+                t.join()
+
     def main(self):
         parser = self.make_argparser()
         self.args = parser.parse_args()
@@ -202,16 +220,4 @@ class Playbook:
         else:
             hosts = list(self.hosts())
 
-        if len(hosts) == 1:
-            self.thread_main(hosts[0])
-        else:
-            # Start all the runners in separate threads
-            threads = []
-            for host in hosts:
-                t = threading.Thread(target=self.thread_main, args=(host,))
-                threads.append(t)
-                t.start()
-
-            # Wait for all threads to complete
-            for t in threads:
-                t.join()
+        self.provision(hosts)
