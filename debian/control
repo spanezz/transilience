@@ -1,0 +1,21 @@
+Source: transilience
+Section: python
+Priority: optional
+Maintainer: Enrico Zini <enrico@debian.org>
+Build-Depends: debhelper (>= 13), dh-python,
+               python3-all, python3-yaml
+Standards-Version: 4.2.0
+
+Package: python3-transilience
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends},
+         python3-yaml, python3-jinja2, python3-mitogen
+Recommends: ${python3:Recommends}
+Suggests: ${python3:Suggests}
+Description: Python provisioning library with ansible-like semantics
+ Python provisioning library.
+ .
+ Ansible-like modules. Declarative actions. Generate actions with Python. No
+ templatized YAML. Mitogen-based connections.
+ .
+ Early stage proof of concept prototype.

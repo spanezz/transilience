@@ -1,0 +1,5 @@
+#! /usr/bin/make -f
+
+export PYBUILD_NAME=transilience
+%:
+	dh $@ --with python3 --buildsystem=pybuild
