@@ -11,7 +11,8 @@ jobs:
         uses: actions/setup-python@v2
       - name: Install dependencies and project
         run: |
-          sudo apt install systemd-container btrfs-progs eatmydata debootstrap python3-pip python3-nose2
+          sudo apt-get update
+          sudo apt-get -y install systemd-container btrfs-progs eatmydata debootstrap python3-pip python3-nose2
           sudo python3 -m pip install .
       - name: Setup btrfs for tests
         run: |
