@@ -80,12 +80,12 @@ class Playbook:
         """
         return ()
 
-    def thread_main(self, host: Host):
+    def thread_main(self, host: Host, check_mode: bool):
         """
         Main entry point for per-host threads
         """
         self.run_context.host = host
-        self.run_context.runner = Runner(host, check_mode=self.args.check)
+        self.run_context.runner = Runner(host, check_mode=check_mode)
         self.start(host)
         self.run_context.runner.main()
 
@@ -173,17 +173,17 @@ class Playbook:
             # Turn everything into a zipapp
             zipapp.create_archive(workdir, target, interpreter=interpreter, compressed=True)
 
-    def provision(self, hosts: Sequence[Host]):
+    def provision(self, hosts: Sequence[Host], check_mode: bool):
         """
         Run provisioning on the given hosts
         """
         if len(hosts) == 1:
-            self.thread_main(hosts[0])
+            self.thread_main(hosts[0], check_mode)
         else:
             # Start all the runners in separate threads
             threads = []
             for host in hosts:
-                t = threading.Thread(target=self.thread_main, args=(host,))
+                t = threading.Thread(target=self.thread_main, args=(host, check_mode))
                 threads.append(t)
                 t.start()
 
@@ -220,4 +220,4 @@ class Playbook:
         else:
             hosts = list(self.hosts())
 
-        self.provision(hosts)
+        self.provision(hosts, check=self.args.check)
