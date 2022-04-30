@@ -286,7 +286,7 @@ class Generic:
 
         if self.action.uid is not None:
             cmd.append('-u')
-            cmd.append(self.action.uid)
+            cmd.append(str(self.action.uid))
 
             if self.action.non_unique:
                 cmd.append('-o')
