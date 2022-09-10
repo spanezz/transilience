@@ -46,7 +46,7 @@ class Play(Playbook):
 
 
 if __name__ == "__main__":
-    sys.exit(VPS().main())
+    sys.exit(Play().main())
 ```
 
 The `Playbook` class adds a basic command line interface:
