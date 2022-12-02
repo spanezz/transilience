@@ -76,7 +76,7 @@ class FilesystemRoleLoader(RoleLoader):
 
         try:
             with open(tasks_file, "rt") as fd:
-                tasks = yaml.load(fd)
+                tasks = yaml.load(fd, Loader=yaml.CLoader)
         except FileNotFoundError:
             raise RoleNotFoundError(self.name)
 
@@ -87,7 +87,7 @@ class FilesystemRoleLoader(RoleLoader):
 
         try:
             with open(handlers_file, "rt") as fd:
-                handlers = yaml.load(fd)
+                handlers = yaml.load(fd, Loader=yaml.CLoader)
         except FileNotFoundError:
             return
 
@@ -111,7 +111,7 @@ class ZipRoleLoader(RoleLoader):
     def load_tasks(self):
         try:
             with self.zipfile.open(os.path.join("roles", self.name, "tasks", "main.yaml"), "r") as fd:
-                tasks = yaml.load(fd)
+                tasks = yaml.load(fd, Loader=yaml.CLoader)
         except KeyError:
             raise RoleNotFoundError(self.name)
 
@@ -120,7 +120,7 @@ class ZipRoleLoader(RoleLoader):
     def load_handlers(self):
         try:
             with self.zipfile.open(os.path.join("roles", self.name, "handlers", "main.yaml"), "r") as fd:
-                handlers = yaml.load(fd)
+                handlers = yaml.load(fd, Loader=yaml.CLoader)
         except KeyError:
             return
 
