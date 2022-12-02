@@ -220,4 +220,4 @@ class Playbook:
         else:
             hosts = list(self.hosts())
 
-        self.provision(hosts, check=self.args.check)
+        self.provision(hosts, check_mode=self.args.check)
